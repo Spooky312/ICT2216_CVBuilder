@@ -1,6 +1,7 @@
 import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
+import MonthYearPicker from '../MonthYearPicker';
 
 const BLANK = { institution: '', degree: '', field_of_study: '', start_date: '', end_date: '', gpa: '', description: '' };
 
@@ -53,30 +54,23 @@ export default function Education({ data, onChange, errors = {}, onFieldBlur }) 
               <input value={edu.field_of_study} onChange={(e) => update(i, 'field_of_study', e.target.value)} maxLength={200} />
             </div>
             <div className="form-group">
-              <label htmlFor={`education-${i}-gpa`}>GPA</label>
+              <label htmlFor={`education-${i}-gpa`}>Grade</label>
               <input id={`education-${i}-gpa`} value={edu.gpa} onChange={(e) => update(i, 'gpa', e.target.value)}
-                onBlur={() => onFieldBlur(`${i}.gpa`)} maxLength={10} inputMode="decimal"
-                placeholder="3.8 or 3.8/4.0" {...errorProps(errors, `${i}.gpa`, `education-${i}-gpa`)} />
+                onBlur={() => onFieldBlur(`${i}.gpa`)} maxLength={20}
+                {...errorProps(errors, `${i}.gpa`, `education-${i}-gpa`)} />
               <FieldError errors={errors} name={`${i}.gpa`} inputId={`education-${i}-gpa`} />
             </div>
           </div>
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor={`education-${i}-start`}>Start Date</label>
-              <input id={`education-${i}-start`} value={edu.start_date}
-                onChange={(e) => update(i, 'start_date', e.target.value)}
-                onBlur={() => onFieldBlur(`${i}.start_date`)} placeholder="2020 or 2020-09" maxLength={7}
-                {...errorProps(errors, `${i}.start_date`, `education-${i}-start`)} />
-              <FieldError errors={errors} name={`${i}.start_date`} inputId={`education-${i}-start`} />
-            </div>
-            <div className="form-group">
-              <label htmlFor={`education-${i}-end`}>End Date</label>
-              <input id={`education-${i}-end`} value={edu.end_date}
-                onChange={(e) => update(i, 'end_date', e.target.value)}
-                onBlur={() => onFieldBlur(`${i}.end_date`)} placeholder="2024 or Present" maxLength={7}
-                {...errorProps(errors, `${i}.end_date`, `education-${i}-end`)} />
-              <FieldError errors={errors} name={`${i}.end_date`} inputId={`education-${i}-end`} />
-            </div>
+            <MonthYearPicker id={`education-${i}-start`} label="Start Date" value={edu.start_date}
+              onChange={(value) => update(i, 'start_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
+              errors={errors} errorName={`${i}.start_date`} />
+            <MonthYearPicker id={`education-${i}-end`} label="End Date" value={edu.end_date}
+              onChange={(value) => update(i, 'end_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
+              allowPresent presentLabel="Currently studying here"
+              errors={errors} errorName={`${i}.end_date`} />
           </div>
           <div className="form-group">
             <label>Description / Achievements</label>

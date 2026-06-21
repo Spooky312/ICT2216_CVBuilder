@@ -3,7 +3,6 @@ const PHONE_RE = /^[\d\s+\-()]{7,20}$/;
 const URL_RE = /^https?:\/\/.+\..+/i;
 const DATE_RE = /^\d{4}(-\d{2})?$/;
 const END_DATE_RE = /^(\d{4}(-\d{2})?|Present)$/;
-const GPA_RE = /^\d(\.\d{1,2})?(\/\d(\.\d)?)?$/;
 
 function add(errors, field, message) {
   if (message) errors[field] = message;
@@ -85,8 +84,7 @@ function validateEducation(entries = []) {
       || maxLength(entry.institution, 200, 'Institution'));
     add(errors, `${index}.degree`, required(entry.degree, 'Degree') || maxLength(entry.degree, 200, 'Degree'));
     add(errors, `${index}.field_of_study`, maxLength(entry.field_of_study, 200, 'Field of study'));
-    add(errors, `${index}.gpa`, text(entry.gpa) && !GPA_RE.test(text(entry.gpa))
-      ? 'Use a value such as 3.8 or 3.8/4.0.' : '');
+    add(errors, `${index}.gpa`, maxLength(entry.gpa, 20, 'Grade'));
     add(errors, `${index}.description`, maxLength(entry.description, 500, 'Description'));
     validateDatedEntry(errors, entry, index);
   });

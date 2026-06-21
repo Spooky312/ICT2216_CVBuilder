@@ -133,8 +133,9 @@ class EducationEntrySchema(DatedEntrySchema):
     field_of_study = fields.Str(validate=validate.Length(max=200))
     start_date = _start_date_field()
     end_date = _end_date_field()
-    gpa = fields.Str(validate=validate.Regexp(r'^\d(\.\d{1,2})?\/\d(\.\d)?$|^\d(\.\d{1,2})?$',
-                                               error="Invalid GPA format"))
+    # Keep the existing JSON key for API compatibility while accepting grades
+    # such as "Distinction", "A+", and numeric GPA values.
+    gpa = fields.Str(validate=validate.Length(max=20))
     description = _description_field()
 
 

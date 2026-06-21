@@ -76,6 +76,17 @@ def test_year_only_end_date_represents_end_of_year():
     assert result["content_json"]["education"][0]["end_date"] == "2024"
 
 
+def test_education_grade_accepts_free_form_text():
+    payload = payload_with(education=[{
+        "institution": "SIT",
+        "degree": "BSc",
+        "gpa": "  Distinction  ",
+    }])
+
+    result = CreateResumeSchema().load(payload)
+    assert result["content_json"]["education"][0]["gpa"] == "Distinction"
+
+
 def test_required_whitespace_only_value_is_rejected():
     payload = payload_with()
     payload["content_json"]["personal_info"]["full_name"] = "   "
