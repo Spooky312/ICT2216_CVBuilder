@@ -142,9 +142,11 @@ the end.
 - [x] `content_json` shape settled (personal_info, education, experience, projects,
       skills — see `tests/test_resumes.py` for the agreed contract)
 - [x] `GET /resumes/templates` — lists active templates (FR-11)
-- [ ] Confirm which validation library is actually used for `content_json` (D1 cites
-      "Marshmallow or Pydantic" as the SR-05 whitelist-schema mechanism) and name it
-      explicitly in code comments and the D2 report
+- [x] Confirmed `content_json` uses Marshmallow whitelist schemas. Input is trimmed,
+      blank optional values are omitted, and partial dates are validated for real
+      month ranges and chronological order (`resume_schema.py`, SR-05/NFR-08)
+- [x] Schema tests cover blank optional values, input normalisation, invalid months,
+      chronological date order, and whitespace-only required fields
 - [ ] Unit/integration tests: CRUD happy paths, IDOR rejection, schema validation
       (currently blocked by the session/auth bug above)
 - [ ] Comment all of the above with the SR ID it satisfies
@@ -194,6 +196,9 @@ full `ResumeWizard` (`PersonalInfo`, `Education`, `Experience`, `Skills`, `Proje
       backend gap above; will need a QR/TOTP-entry step once Phase 3's TOTP work lands
 - [x] Profile view/edit/delete UI
 - [x] Resume creation wizard — all steps present, matches Phase 4's `content_json` shape
+- [x] Resume wizard validates each step before continuing and shows field-level errors;
+      client rules mirror the backend Marshmallow schema while the server remains the
+      validation authority
 - [x] Template selection + export/download UI
 - [x] Admin UI shell (`AdminPanel.js`) — users, templates, audit log
 - [x] CSRF token handling present (`services/api.js`)
