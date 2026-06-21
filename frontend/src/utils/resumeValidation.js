@@ -55,7 +55,9 @@ function validatePersonal(personal = {}) {
   add(errors, 'full_name', required(personal.full_name, 'Full name') || maxLength(personal.full_name, 100, 'Full name'));
   add(errors, 'email', required(personal.email, 'Email'));
   if (text(personal.email) && !EMAIL_RE.test(text(personal.email))) add(errors, 'email', 'Enter a valid email address.');
-  if (text(personal.phone) && !PHONE_RE.test(text(personal.phone))) {
+  if (text(personal.phone) && !/^\+\d{1,4}\s/.test(text(personal.phone))) {
+    add(errors, 'phone', 'Enter a country code beginning with +, such as +65.');
+  } else if (text(personal.phone) && !PHONE_RE.test(text(personal.phone))) {
     add(errors, 'phone', 'Use 7–20 digits and common phone symbols only.');
   }
   add(errors, 'location', maxLength(personal.location, 100, 'Location'));

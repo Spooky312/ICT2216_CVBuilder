@@ -98,6 +98,32 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
   border-color: var(--red); background: #fffafa; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .field-error { color: var(--red); font-size: 12px; font-weight: 600; }
+.phone-fieldset { min-width: 0; margin: 0 0 1rem; padding: 0; border: 0; }
+.phone-fieldset legend { margin-bottom: 0.35rem; color: var(--gray-600); font-size: 13px; font-weight: 600; }
+.phone-input-row { display: grid; grid-template-columns: minmax(150px, 0.65fr) minmax(150px, 1fr); gap: 0.5rem; }
+.phone-input-row > div { display: flex; min-width: 0; flex-direction: column; gap: 0.35rem; }
+.phone-input-row label { color: var(--gray-400); font-size: 11px; font-weight: 600; }
+.phone-input-row input, .phone-input-row select { width: 100%; border: 1px solid var(--gray-200);
+                         border-radius: var(--radius); background: #fff; padding: 0.5rem 0.75rem; outline: none; }
+.phone-input-row input:focus, .phone-input-row select:focus { border-color: var(--blue);
+                         box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.phone-input-row input[aria-invalid="true"] { border-color: var(--red); background: #fffafa; }
+.country-code-combobox { position: relative; }
+.country-code-combobox > input { padding-right: 2rem; }
+.country-code-chevron { position: absolute; top: 50%; right: 0.7rem; color: var(--gray-400);
+                        pointer-events: none; transform: translateY(-55%); }
+.country-code-options { position: absolute; top: calc(100% + 5px); left: 0; z-index: 30;
+                        width: max(100%, 220px); max-height: 240px; overflow-y: auto;
+                        border: 1px solid var(--gray-200); border-radius: var(--radius);
+                        background: #fff; box-shadow: var(--shadow-md); padding: 0.3rem; }
+.country-code-options button { display: flex; width: 100%; justify-content: space-between; gap: 1rem;
+                               border: 0; border-radius: 5px; background: transparent; color: var(--gray-800);
+                               cursor: pointer; padding: 0.45rem 0.55rem; text-align: left; }
+.country-code-options button:hover, .country-code-options button.active { background: var(--blue-light); }
+.country-code-options button.selected { color: var(--blue); }
+.country-code-options button strong { font-size: 12px; }
+.country-code-empty { display: block; color: var(--gray-400); font-size: 12px; padding: 0.65rem; }
+.phone-location-group input { margin-top: 1.45rem; }
 
 /* ── Password rules ── */
 .password-rules { list-style: none; margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
@@ -141,7 +167,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .field-hint { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
 
 /* ── Wizard ── */
-.wizard-container { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem; }
+.wizard-container { width: calc(100% - 2rem); max-width: 960px; margin: 0 auto; padding: 2rem 0; }
 .wizard-header { margin-bottom: 1.5rem; }
 .wizard-title-input { font-size: 20px; font-weight: 700; border: none; border-bottom: 2px solid var(--gray-200);
                        border-radius: 0; padding: 0.25rem 0; background: transparent; width: 100%; }
@@ -282,6 +308,13 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 
 /* Template admin */
 .template-admin-list { display: flex; flex-direction: column; gap: 1rem; }
+
+@media (max-width: 640px) {
+  .wizard-container { width: calc(100% - 1rem); padding: 1rem 0; }
+  .form-row { grid-template-columns: 1fr; gap: 0; }
+  .phone-input-row { grid-template-columns: minmax(140px, 0.6fr) minmax(0, 1fr); }
+  .phone-location-group input { margin-top: 0; }
+}
 .entry-card-inactive  { opacity: 0.6; }
 .tmpl-id { font-size: 12px; color: var(--gray-400); font-weight: 400; }
 .template-desc-row { display: flex; justify-content: space-between; align-items: flex-start;

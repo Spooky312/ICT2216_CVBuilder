@@ -1,5 +1,6 @@
 import React from 'react';
 import FieldError, { errorProps } from '../../common/FieldError';
+import PhoneInput from '../PhoneInput';
 
 export default function PersonalInfo({ data, onChange, errors = {}, onFieldBlur }) {
   const set = (field) => (e) => onChange({ ...data, [field]: e.target.value });
@@ -24,14 +25,10 @@ export default function PersonalInfo({ data, onChange, errors = {}, onFieldBlur 
         </div>
       </div>
       <div className="form-row">
-        <div className="form-group">
-          <label htmlFor="personal-phone">Phone</label>
-          <input id="personal-phone" type="tel" value={data.phone || ''} onChange={set('phone')}
-            onBlur={() => onFieldBlur('phone')} maxLength={20} placeholder="+65 9123 4567"
-            {...errorProps(errors, 'phone', 'personal-phone')} />
-          <FieldError errors={errors} name="phone" inputId="personal-phone" />
-        </div>
-        <div className="form-group">
+        <PhoneInput value={data.phone || ''}
+          onChange={(phone) => onChange({ ...data, phone })}
+          onBlur={() => onFieldBlur('phone')} errors={errors} />
+        <div className="form-group phone-location-group">
           <label htmlFor="personal-location">Location</label>
           <input id="personal-location" value={data.location || ''} onChange={set('location')}
             onBlur={() => onFieldBlur('location')} maxLength={100}
