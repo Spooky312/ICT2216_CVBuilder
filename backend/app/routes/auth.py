@@ -1,16 +1,16 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from flask import Blueprint, request, jsonify, Response
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
-    jwt_required, get_jwt_identity, set_access_cookies,
+    jwt_required, set_access_cookies,
     set_refresh_cookies, unset_jwt_cookies,
 )
 from app.extensions import db, limiter
 from app.models.user import User
 from app.schemas.user_schema import RegisterSchema, LoginSchema
 from app.utils.audit import log_event
-from app.utils.helpers import load_or_422
+from app.utils.helpers import current_user_id, load_or_422
 from app.utils.security import record_failed_login, reset_failed_logins
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -32,7 +32,6 @@ def register() -> tuple[Response, int]:
     user = User(
         email=data["email"].lower(),
         full_name=data["full_name"],
-        email_verified=True,
     )
     user.set_password(data["password"])
     db.session.add(user)
@@ -70,8 +69,6 @@ def login() -> tuple[Response, int]:
             "show_captcha": user.failed_logins >= 3,
         }), 401
 
-    if not user.email_verified:
-        return jsonify({"message": "Please verify your email before logging in."}), 403
 
     reset_failed_logins(user)
     identity = str(user.user_id)
@@ -91,11 +88,15 @@ def login() -> tuple[Response, int]:
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh() -> tuple[Response, int]:
-    identity = get_jwt_identity()
-    user = db.session.get(User, identity)
+    uid = current_user_id()
+    if uid is None:
+        return jsonify({"message": "User not found."}), 404
+
+    user = db.session.get(User, uid)
     if not user:
         return jsonify({"message": "User not found."}), 404
 
+    identity = str(user.user_id)
     additional = {"role": user.role, "email": user.email}
     access_token = create_access_token(identity=identity, additional_claims=additional)
     resp = jsonify({"message": "Token refreshed."})
@@ -106,8 +107,10 @@ def refresh() -> tuple[Response, int]:
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required()
 def logout() -> tuple[Response, int]:
-    user_id = get_jwt_identity()
+    user_id = current_user_id()
     log_event("logout", user_id=user_id)
     resp = jsonify({"message": "Logged out."})
     unset_jwt_cookies(resp)
     return resp, 200
+
+
