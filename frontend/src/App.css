@@ -94,8 +94,10 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
   background: #fff; width: 100%; outline: none; transition: border-color 0.15s; }
 .form-group input:focus, .form-group textarea:focus { border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.form-group input[aria-invalid="true"], .form-group textarea[aria-invalid="true"] {
+  border-color: var(--red); background: #fffafa; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.field-error { color: var(--red); font-size: 12px; }
+.field-error { color: var(--red); font-size: 12px; font-weight: 600; }
 
 /* ── Password rules ── */
 .password-rules { list-style: none; margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }

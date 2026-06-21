@@ -9,6 +9,9 @@ import Skills from './steps/Skills';
 import TemplateSelect from './steps/TemplateSelect';
 import { createResume, updateResume, getResume } from '../../services/api';
 import Spinner from '../common/Spinner';
+import {
+  firstInvalidStep, validateResume, validateResumeStep,
+} from '../../utils/resumeValidation';
 
 const TOTAL_STEPS = 6;
 
@@ -48,6 +51,8 @@ export default function ResumeWizard() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [stepErrors, setStepErrors] = useState({});
+  const [titleError, setTitleError] = useState('');
 
   useEffect(() => {
     if (!isEdit) return;
@@ -62,18 +67,66 @@ export default function ResumeWizard() {
       .finally(() => setLoading(false));
   }, [id, isEdit]);
 
-  const setSection = (key) => (val) => setContent((prev) => ({ ...prev, [key]: val }));
+  const setSection = (key) => (val) => {
+    const nextContent = { ...content, [key]: val };
+    setContent(nextContent);
+    const currentErrors = validateResumeStep(step, nextContent, templateId);
+    setStepErrors((visibleErrors) => Object.keys(visibleErrors).reduce((next, field) => {
+      if (currentErrors[field]) next[field] = currentErrors[field];
+      return next;
+    }, {}));
+    setError('');
+  };
+
+  const validateField = (field) => {
+    const currentErrors = validateResumeStep(step, content, templateId);
+    setStepErrors((visibleErrors) => {
+      const next = { ...visibleErrors };
+      if (currentErrors[field]) next[field] = currentErrors[field];
+      else delete next[field];
+      return next;
+    });
+  };
 
   const steps = [
-    <PersonalInfo data={content.personal_info} onChange={setSection('personal_info')} />,
-    <Education data={content.education} onChange={setSection('education')} />,
-    <Experience data={content.experience} onChange={setSection('experience')} />,
-    <Projects data={content.projects} onChange={setSection('projects')} />,
-    <Skills data={content.skills} onChange={setSection('skills')} />,
-    <TemplateSelect selected={templateId} onChange={setTemplateId} />,
+    <PersonalInfo data={content.personal_info} onChange={setSection('personal_info')}
+      errors={stepErrors} onFieldBlur={validateField} />,
+    <Education data={content.education} onChange={setSection('education')}
+      errors={stepErrors} onFieldBlur={validateField} />,
+    <Experience data={content.experience} onChange={setSection('experience')}
+      errors={stepErrors} onFieldBlur={validateField} />,
+    <Projects data={content.projects} onChange={setSection('projects')}
+      errors={stepErrors} onFieldBlur={validateField} />,
+    <Skills data={content.skills} onChange={setSection('skills')}
+      errors={stepErrors} onFieldBlur={validateField} />,
+    <TemplateSelect selected={templateId} onChange={(value) => {
+      setTemplateId(value);
+      setStepErrors({});
+    }} errors={stepErrors} />,
   ];
 
+  const handleNext = () => {
+    const currentErrors = validateResumeStep(step, content, templateId);
+    setStepErrors(currentErrors);
+    if (Object.keys(currentErrors).length) {
+      setError('Check the highlighted fields before continuing.');
+      window.requestAnimationFrame(() => document.querySelector('[aria-invalid="true"]')?.focus());
+      return;
+    }
+    setError('');
+    setStep((current) => current + 1);
+  };
+
   const handleSave = async () => {
+    const allErrors = validateResume(content, templateId, title);
+    if (Object.keys(allErrors).length) {
+      const invalidStep = firstInvalidStep(allErrors);
+      setStep(invalidStep);
+      setStepErrors(allErrors[invalidStep] || {});
+      setTitleError(allErrors.title || '');
+      setError('Check the highlighted fields before saving your resume.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -100,21 +153,32 @@ export default function ResumeWizard() {
       <div className="wizard-header">
         <div className="form-group wizard-title-group">
           <label htmlFor="resume-title">Resume Title</label>
-          <input id="resume-title" value={title} onChange={(e) => setTitle(e.target.value)}
-            maxLength={100} className="wizard-title-input" />
+          <input id="resume-title" value={title} onChange={(e) => {
+            setTitle(e.target.value);
+            setTitleError('');
+          }} onBlur={() => {
+            const message = !title.trim() ? 'Resume title is required.' : '';
+            setTitleError(message);
+          }} maxLength={100} className="wizard-title-input"
+            aria-invalid={Boolean(titleError)} aria-describedby={titleError ? 'resume-title-error' : undefined} />
+          {titleError && <small id="resume-title-error" className="field-error">{titleError}</small>}
         </div>
       </div>
 
       <WizardSteps current={step} />
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
 
       <div className="wizard-body">{steps[step]}</div>
 
       <div className="wizard-nav">
         <button
           className="btn-secondary"
-          onClick={() => setStep((s) => s - 1)}
+          onClick={() => {
+            setStepErrors({});
+            setError('');
+            setStep((s) => s - 1);
+          }}
           disabled={step === 0}
         >
           Back
@@ -123,7 +187,7 @@ export default function ResumeWizard() {
         <span className="step-counter">{step + 1} / {TOTAL_STEPS}</span>
 
         {step < TOTAL_STEPS - 1 ? (
-          <button className="btn-primary" onClick={() => setStep((s) => s + 1)}>
+          <button className="btn-primary" onClick={handleNext}>
             Next
           </button>
         ) : (

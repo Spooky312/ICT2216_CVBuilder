@@ -1,9 +1,10 @@
 import React from 'react';
 import EntryCard from '../EntryCard';
+import FieldError, { errorProps } from '../../common/FieldError';
 
 const BLANK = { company: '', position: '', location: '', start_date: '', end_date: '', description: '', achievements: [] };
 
-export default function Experience({ data, onChange }) {
+export default function Experience({ data, onChange, errors = {}, onFieldBlur }) {
   const items = data || [];
 
   const add = () => onChange([...items, { ...BLANK }]);
@@ -47,12 +48,20 @@ export default function Experience({ data, onChange }) {
         <EntryCard key={i} index={i} onRemove={() => remove(i)}>
           <div className="form-row">
             <div className="form-group">
-              <label>Position *</label>
-              <input value={exp.position} onChange={(e) => update(i, 'position', e.target.value)} maxLength={200} />
+              <label htmlFor={`experience-${i}-position`}>Position *</label>
+              <input id={`experience-${i}-position`} value={exp.position}
+                onChange={(e) => update(i, 'position', e.target.value)}
+                onBlur={() => onFieldBlur(`${i}.position`)} maxLength={200}
+                {...errorProps(errors, `${i}.position`, `experience-${i}-position`)} />
+              <FieldError errors={errors} name={`${i}.position`} inputId={`experience-${i}-position`} />
             </div>
             <div className="form-group">
-              <label>Company *</label>
-              <input value={exp.company} onChange={(e) => update(i, 'company', e.target.value)} maxLength={200} />
+              <label htmlFor={`experience-${i}-company`}>Company *</label>
+              <input id={`experience-${i}-company`} value={exp.company}
+                onChange={(e) => update(i, 'company', e.target.value)}
+                onBlur={() => onFieldBlur(`${i}.company`)} maxLength={200}
+                {...errorProps(errors, `${i}.company`, `experience-${i}-company`)} />
+              <FieldError errors={errors} name={`${i}.company`} inputId={`experience-${i}-company`} />
             </div>
           </div>
           <div className="form-row">
@@ -62,12 +71,20 @@ export default function Experience({ data, onChange }) {
             </div>
             <div className="form-group form-row" style={{ gap: '0.5rem' }}>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>Start Date</label>
-                <input value={exp.start_date} onChange={(e) => update(i, 'start_date', e.target.value)} placeholder="2022-01" maxLength={7} />
+                <label htmlFor={`experience-${i}-start`}>Start Date</label>
+                <input id={`experience-${i}-start`} value={exp.start_date}
+                  onChange={(e) => update(i, 'start_date', e.target.value)}
+                  onBlur={() => onFieldBlur(`${i}.start_date`)} placeholder="2022-01" maxLength={7}
+                  {...errorProps(errors, `${i}.start_date`, `experience-${i}-start`)} />
+                <FieldError errors={errors} name={`${i}.start_date`} inputId={`experience-${i}-start`} />
               </div>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>End Date</label>
-                <input value={exp.end_date} onChange={(e) => update(i, 'end_date', e.target.value)} placeholder="Present" maxLength={7} />
+                <label htmlFor={`experience-${i}-end`}>End Date</label>
+                <input id={`experience-${i}-end`} value={exp.end_date}
+                  onChange={(e) => update(i, 'end_date', e.target.value)}
+                  onBlur={() => onFieldBlur(`${i}.end_date`)} placeholder="Present" maxLength={7}
+                  {...errorProps(errors, `${i}.end_date`, `experience-${i}-end`)} />
+                <FieldError errors={errors} name={`${i}.end_date`} inputId={`experience-${i}-end`} />
               </div>
             </div>
           </div>
@@ -84,7 +101,9 @@ export default function Experience({ data, onChange }) {
             </div>
             {(exp.achievements || []).map((ach, ai) => (
               <div key={ai} className="achievement-row">
-                <input value={ach} onChange={(e) => updateAchievement(i, ai, e.target.value)} maxLength={500} placeholder="Quantified achievement…" />
+                <input value={ach} onChange={(e) => updateAchievement(i, ai, e.target.value)}
+                  onBlur={() => onFieldBlur(`${i}.achievement.${ai}`)} maxLength={500}
+                  placeholder="Quantified achievement…" aria-label={`Achievement ${ai + 1}`} />
                 <button type="button" className="btn-danger-sm" onClick={() => removeAchievement(i, ai)}>×</button>
               </div>
             ))}
