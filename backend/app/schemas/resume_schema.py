@@ -187,6 +187,54 @@ class ResumeContentSchema(NormalisedSchema):
     skills = fields.Nested(SkillsSchema)
 
 
+class PreviewPersonalInfoSchema(PersonalInfoSchema):
+    """Personal details remain optional while the wizard draft is incomplete."""
+
+    full_name = fields.Str(validate=validate.Length(max=100))
+    email = fields.Email()
+
+
+class PreviewEducationEntrySchema(EducationEntrySchema):
+    institution = fields.Str(validate=validate.Length(max=200))
+    degree = fields.Str(validate=validate.Length(max=200))
+
+
+class PreviewExperienceEntrySchema(ExperienceEntrySchema):
+    company = fields.Str(validate=validate.Length(max=200))
+    position = fields.Str(validate=validate.Length(max=200))
+
+
+class PreviewProjectEntrySchema(ProjectEntrySchema):
+    name = fields.Str(validate=validate.Length(max=200))
+
+
+class PreviewResumeContentSchema(NormalisedSchema):
+    """Whitelisted resume draft shape with safe defaults for Jinja rendering."""
+
+    personal_info = fields.Nested(PreviewPersonalInfoSchema, load_default=dict)
+    education = fields.List(
+        fields.Nested(PreviewEducationEntrySchema),
+        validate=validate.Length(max=MAX_ENTRIES),
+        load_default=list,
+    )
+    experience = fields.List(
+        fields.Nested(PreviewExperienceEntrySchema),
+        validate=validate.Length(max=MAX_ENTRIES),
+        load_default=list,
+    )
+    projects = fields.List(
+        fields.Nested(PreviewProjectEntrySchema),
+        validate=validate.Length(max=MAX_ENTRIES),
+        load_default=list,
+    )
+    skills = fields.Nested(SkillsSchema, load_default=dict)
+
+
+class PreviewResumeSchema(NormalisedSchema):
+    template_id = fields.Str(required=True, validate=validate.OneOf(ALLOWED_TEMPLATES))
+    content_json = fields.Nested(PreviewResumeContentSchema, required=True)
+
+
 class CreateResumeSchema(NormalisedSchema):
     title = fields.Str(required=True, validate=validate.Length(min=1, max=100))
     template_id = fields.Str(required=True, validate=validate.OneOf(ALLOWED_TEMPLATES))

@@ -42,7 +42,7 @@ User/Clients (mobile, desktop) + Google Authenticator
 | Flow | Direction | Data Exchanged |
 |---|---|---|
 | 1 | User → Web App | Login credentials, profile updates, resume wizard content |
-| 2 | Web App → User | Rendered HTML pages, exported PDF resumes |
+| 2 | Web App → User | Rendered HTML pages, transient PDF previews, exported PDF resumes |
 | 3 | Admin → Web App | CV templates & user management, viewing logs |
 | 4 | Web App → Admin | User lists, CV templates, logs |
 | 5 | Web App → Database | SQL queries |
@@ -62,7 +62,7 @@ User/Clients (mobile, desktop) + Google Authenticator
 **Note on the DoS row:** the resource-exhaustion framing above (oversized/complex PDF
 export input) is the corrected version. An earlier draft incorrectly described this row
 as a CSRF/availability-via-forged-request threat — when implementing, the DoS control
-that matters is the **rate limit on `/resumes/{id}/export`**, not CSRF tokens (CSRF is
+that matters is the **rate limits on `/resumes/preview` and `/resumes/{id}/export`**, not CSRF tokens (CSRF is
 SR-12's job and maps to Tampering/Spoofing-adjacent risks, not DoS).
 
 ## Attack Surface Analysis
@@ -70,8 +70,8 @@ SR-12's job and maps to Tampering/Spoofing-adjacent risks, not DoS).
 | Attack Surface | Entry Point | Threat Actor | Linked Risk |
 |---|---|---|---|
 | Authentication | `/auth/login`, `/auth/register` | External attacker | R-02, R-03 |
-| Resume wizard inputs | `/resumes` (POST), all wizard fields | Authenticated attacker | R-04, R-09 |
-| PDF export pipeline | `/resumes/{id}/export` | Authenticated attacker | R-06, R-09 |
+| Resume wizard inputs | `/resumes` and `/resumes/preview` (POST), all wizard fields | Authenticated attacker | R-04, R-06, R-09 |
+| PDF rendering pipeline | `/resumes/preview`, `/resumes/{id}/export` | Authenticated attacker | R-06, R-09 |
 | Profile management | `/profile` (GET, PUT, DELETE) | Authenticated attacker | R-01, R-05 |
 | Admin interface | `/admin/*` | Privilege escalation attacker | R-02 |
 | Session/cookie management | All authenticated routes | External / authenticated attacker | R-02, R-05 |

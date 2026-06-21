@@ -28,6 +28,7 @@ integration.
 | Method | Route | FR | SR | Notes |
 |---|---|---|---|---|
 | POST | `/resumes` | FR-09 | SR-05, SR-06, SR-12 | Server-side schema validation before persist. |
+| POST | `/resumes/preview` | FR-09, FR-10 | SR-05, SR-12 | Renders an uncached PDF from a validated unsaved draft; rate-limited 10/min/user and never persisted. |
 | GET | `/resumes/{resume_id}` | FR-03-adjacent | SR-06, SR-07 | Ownership check: `resumes.user_id == current_user.id`. |
 | PUT | `/resumes/{resume_id}` | FR-09 | SR-05, SR-06, SR-07, SR-12 | Ownership check + CSRF. |
 | DELETE | `/resumes/{resume_id}` | — | SR-06, SR-07, SR-12 | Ownership check + CSRF. |

@@ -86,7 +86,8 @@ def _set_security_headers(app: Flask) -> None:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "frame-src 'self' blob:;"
         )
         if app.config.get("JWT_COOKIE_SECURE"):
             response.headers["Strict-Transport-Security"] = (

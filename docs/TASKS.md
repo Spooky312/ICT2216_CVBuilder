@@ -157,6 +157,8 @@ the end.
 - [x] WeasyPrint integration (`app/services/pdf_service.py`)
 - [x] Jinja2 templates with `autoescape=True` via `select_autoescape`
 - [x] Server-side template ID validation against `ALLOWED_TEMPLATES` allow-list
+- [x] Authenticated `POST /resumes/preview` renders validated, unsaved drafts through
+      the same WeasyPrint pipeline as export; responses are uncached and rate-limited
 - [ ] Fix `GET /resumes/{id}/export` rate limit — currently `20 per hour`, should be
       `10 per minute per authenticated user` to match the documented design
 - [ ] Run a basic load/performance check against NFR-01 (PDF within 5s/95th percentile
@@ -199,6 +201,8 @@ full `ResumeWizard` (`PersonalInfo`, `Education`, `Experience`, `Skills`, `Proje
 - [x] Resume wizard validates each step before continuing and shows field-level errors;
       client rules mirror the backend Marshmallow schema while the server remains the
       validation authority
+- [x] Resume wizard starts with template selection and provides an on-demand exact PDF
+      preview: split editor/preview on desktop, full-screen preview drawer on smaller screens
 - [x] Template selection + export/download UI
 - [x] Admin UI shell (`AdminPanel.js`) — users, templates, audit log
 - [x] CSRF token handling present (`services/api.js`)

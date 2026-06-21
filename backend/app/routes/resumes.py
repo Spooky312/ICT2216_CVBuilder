@@ -7,8 +7,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db, limiter
 from app.models.user import User
 from app.models.resume import Resume
-from app.schemas.resume_schema import TEMPLATE_METADATA, CreateResumeSchema, UpdateResumeSchema
-from app.services.pdf_service import generate_pdf
+from app.schemas.resume_schema import (
+    TEMPLATE_METADATA, CreateResumeSchema, PreviewResumeSchema, UpdateResumeSchema,
+)
+from app.services.pdf_service import generate_pdf, generate_pdf_from_content
 from app.utils.audit import log_event
 from app.utils.helpers import get_current_user_or_404, load_or_422
 
@@ -16,6 +18,7 @@ resumes_bp = Blueprint("resumes", __name__, url_prefix="/resumes")
 
 create_schema = CreateResumeSchema()
 update_schema = UpdateResumeSchema()
+preview_schema = PreviewResumeSchema()
 
 
 def _max_resumes() -> int:
@@ -37,6 +40,38 @@ def _check_resume_limit(user_id: uuid.UUID) -> tuple[None, None] | tuple[None, t
     if count >= max_r:
         return None, (jsonify({"message": f"Maximum {max_r} resumes allowed."}), 409)
     return None, None
+
+
+@resumes_bp.route("/preview", methods=["POST"])
+@jwt_required()
+@limiter.limit("10 per minute", key_func=lambda: str(get_jwt_identity()))
+def preview_resume() -> tuple[Response, int] | Response:
+    """Render an unsaved, validated draft without persisting personal data."""
+    data, err = load_or_422(preview_schema, request.get_json(force=True) or {})
+    if err:
+        return err
+
+    try:
+        pdf_bytes = generate_pdf_from_content(
+            data["template_id"],
+            data["content_json"],
+            timeout_seconds=current_app.config.get("PDF_GENERATION_TIMEOUT", 30),
+        )
+    except TimeoutError:
+        return jsonify({"message": "PDF preview timed out. Please try again."}), 504
+    except Exception:
+        current_app.logger.exception("PDF preview generation failed")
+        return jsonify({"message": "PDF preview generation failed."}), 500
+
+    response = send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name="resume-preview.pdf",
+        max_age=0,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @resumes_bp.route("", methods=["GET"])

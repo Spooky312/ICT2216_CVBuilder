@@ -61,6 +61,8 @@ practices" section.
 
 **Rate Limiting (Flask-Limiter)**
 - `/auth/login`: 5 req / 15 min / IP.
+- `/resumes/preview`: 10 req / min / authenticated user; drafts are validated,
+  rendered in memory, returned with `Cache-Control: no-store`, and never persisted.
 - `/resumes/{id}/export`: 10 req / min / authenticated user (mitigates R-06, CPU
   exhaustion from repeated PDF generation — this is the **DoS** mitigation; see
   `ARCHITECTURE.md` STRIDE table).

@@ -1,3 +1,5 @@
+import { RESUME_STEPS } from '../components/resume/resumeSteps';
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\s+\-()]{7,20}$/;
 const URL_RE = /^https?:\/\/.+\..+/i;
@@ -145,30 +147,30 @@ function validateSkills(skills = {}) {
   return errors;
 }
 
-export function validateResumeStep(step, content, templateId) {
-  switch (step) {
-    case 0: return validatePersonal(content.personal_info);
-    case 1: return validateEducation(content.education);
-    case 2: return validateExperience(content.experience);
-    case 3: return validateProjects(content.projects);
-    case 4: return validateSkills(content.skills);
-    case 5: return ['modern', 'classic', 'minimal'].includes(templateId)
+export function validateResumeStep(stepId, content, templateId) {
+  switch (stepId) {
+    case 'template': return ['modern', 'classic', 'minimal'].includes(templateId)
       ? {} : { template_id: 'Choose an available template.' };
+    case 'personal': return validatePersonal(content.personal_info);
+    case 'education': return validateEducation(content.education);
+    case 'experience': return validateExperience(content.experience);
+    case 'projects': return validateProjects(content.projects);
+    case 'skills': return validateSkills(content.skills);
     default: return {};
   }
 }
 
 export function validateResume(content, templateId, title) {
   const errors = {};
-  for (let step = 0; step < 6; step += 1) {
-    const stepErrors = validateResumeStep(step, content, templateId);
-    if (Object.keys(stepErrors).length) errors[step] = stepErrors;
-  }
+  RESUME_STEPS.forEach(({ id }) => {
+    const stepErrors = validateResumeStep(id, content, templateId);
+    if (Object.keys(stepErrors).length) errors[id] = stepErrors;
+  });
   if (!text(title)) errors.title = 'Resume title is required.';
   else if (text(title).length > 100) errors.title = 'Resume title must be 100 characters or fewer.';
   return errors;
 }
 
 export function firstInvalidStep(errors) {
-  return Object.keys(errors).map(Number).filter(Number.isInteger).sort((a, b) => a - b)[0] ?? 0;
+  return RESUME_STEPS.find(({ id }) => errors[id])?.id || RESUME_STEPS[0].id;
 }
