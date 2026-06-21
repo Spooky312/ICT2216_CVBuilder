@@ -1,4 +1,4 @@
-﻿import pytest
+﻿from http.cookies import SimpleCookie
 
 LOGIN_URL = "/auth/login"
 RESUMES_URL = "/resumes"
@@ -27,12 +27,20 @@ def _login(client, user):
         "email": user.email,
         "password": "SecurePass1!",
     })
-    return resp
+    assert resp.status_code == 200
+
+    cookies = SimpleCookie()
+    for header in resp.headers.getlist("Set-Cookie"):
+        cookies.load(header)
+
+    if "csrf_access_token" not in cookies:
+        return {}
+    return {"X-CSRF-TOKEN": cookies["csrf_access_token"].value}
 
 
 def test_create_resume(client, db, test_user):
-    _login(client, test_user)
-    resp = client.post(RESUMES_URL, json={
+    headers = _login(client, test_user)
+    resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "My Resume",
         "template_id": "modern",
         "content_json": SAMPLE_CONTENT,
@@ -44,61 +52,61 @@ def test_create_resume(client, db, test_user):
 
 
 def test_list_resumes(client, db, test_user):
-    _login(client, test_user)
-    client.post(RESUMES_URL, json={
+    headers = _login(client, test_user)
+    client.post(RESUMES_URL, headers=headers, json={
         "title": "Resume 1", "template_id": "classic", "content_json": SAMPLE_CONTENT
     })
-    resp = client.get(RESUMES_URL)
+    resp = client.get(RESUMES_URL, headers=headers)
     assert resp.status_code == 200
     assert len(resp.get_json()) >= 1
 
 
 def test_get_resume(client, db, test_user):
-    _login(client, test_user)
-    create_resp = client.post(RESUMES_URL, json={
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "My Resume", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.get(f"{RESUMES_URL}/{resume_id}")
+    resp = client.get(f"{RESUMES_URL}/{resume_id}", headers=headers)
     assert resp.status_code == 200
 
 
 def test_update_resume(client, db, test_user):
-    _login(client, test_user)
-    create_resp = client.post(RESUMES_URL, json={
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Old Title", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.put(f"{RESUMES_URL}/{resume_id}", json={"title": "New Title"})
+    resp = client.put(f"{RESUMES_URL}/{resume_id}", headers=headers, json={"title": "New Title"})
     assert resp.status_code == 200
     assert resp.get_json()["title"] == "New Title"
 
 
 def test_delete_resume(client, db, test_user):
-    _login(client, test_user)
-    create_resp = client.post(RESUMES_URL, json={
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Delete Me", "template_id": "minimal", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.delete(f"{RESUMES_URL}/{resume_id}")
+    resp = client.delete(f"{RESUMES_URL}/{resume_id}", headers=headers)
     assert resp.status_code == 200
-    assert client.get(f"{RESUMES_URL}/{resume_id}").status_code == 404
+    assert client.get(f"{RESUMES_URL}/{resume_id}", headers=headers).status_code == 404
 
 
 def test_duplicate_resume(client, db, test_user):
-    _login(client, test_user)
-    create_resp = client.post(RESUMES_URL, json={
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Original", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.post(f"{RESUMES_URL}/{resume_id}/duplicate")
+    resp = client.post(f"{RESUMES_URL}/{resume_id}/duplicate", headers=headers)
     assert resp.status_code == 201
     assert "(copy)" in resp.get_json()["title"]
 
 
 def test_invalid_template(client, db, test_user):
-    _login(client, test_user)
-    resp = client.post(RESUMES_URL, json={
+    headers = _login(client, test_user)
+    resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Bad Template", "template_id": "hacker", "content_json": SAMPLE_CONTENT
     })
     assert resp.status_code == 422
@@ -107,4 +115,3 @@ def test_invalid_template(client, db, test_user):
 def test_unauthenticated_access(client, db):
     resp = client.get(RESUMES_URL)
     assert resp.status_code == 401
-
