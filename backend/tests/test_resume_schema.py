@@ -1,7 +1,7 @@
 import pytest
 from marshmallow import ValidationError
 
-from app.schemas.resume_schema import CreateResumeSchema
+from app.schemas.resume_schema import CreateResumeSchema, PreviewResumeSchema
 
 
 def payload_with(**content_overrides):
@@ -95,3 +95,50 @@ def test_required_whitespace_only_value_is_rejected():
         CreateResumeSchema().load(payload)
 
     assert "full_name" in str(exc_info.value.messages)
+
+
+def test_bare_resume_links_are_normalised_to_https():
+    payload = payload_with(projects=[{
+        "name": "CVBuilder",
+        "url": "github.com/example/cvbuilder",
+    }])
+    payload["content_json"]["personal_info"].update({
+        "linkedin": "linkedin.com/in/alice",
+        "portfolio": "https://alice.example.com/work",
+    })
+
+    result = CreateResumeSchema().load(payload)
+
+    personal = result["content_json"]["personal_info"]
+    assert personal["linkedin"] == "https://linkedin.com/in/alice"
+    assert personal["portfolio"] == "https://alice.example.com/work"
+    assert result["content_json"]["projects"][0]["url"] == (
+        "https://github.com/example/cvbuilder"
+    )
+
+
+@pytest.mark.parametrize("unsafe_url", [
+    "javascript:alert(1)",
+    "data:text/html,hello",
+    "file:///etc/passwd",
+    "https://user:password@example.com",
+    "example",
+    "exa mple.com",
+])
+def test_unsafe_or_ambiguous_resume_links_are_rejected(unsafe_url):
+    payload = payload_with()
+    payload["content_json"]["personal_info"]["portfolio"] = unsafe_url
+
+    with pytest.raises(ValidationError):
+        CreateResumeSchema().load(payload)
+
+
+def test_preview_schema_normalises_bare_links_without_persisting():
+    result = PreviewResumeSchema().load({
+        "template_id": "modern",
+        "content_json": {
+            "personal_info": {"portfolio": "example.com"},
+        },
+    })
+
+    assert result["content_json"]["personal_info"]["portfolio"] == "https://example.com"

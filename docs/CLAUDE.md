@@ -77,7 +77,9 @@ primary, lockout is residual/secondary).
 1. **No raw SQL string interpolation, ever.** Use SQLAlchemy parameterised
    queries/ORM only (SR-06).
 2. **All input validated server-side** against a whitelist schema (Marshmallow or
-   Pydantic) before it touches the DB or a template (SR-05).
+   Pydantic) before it touches the DB or a template (SR-05). Resume URL fields accept
+   bare domains, normalise them to HTTPS, allow only HTTP(S), reject credentials and
+   malformed hosts, and must never be fetched server-side.
 3. **All HTML/PDF output is escaped.** Jinja2 `autoescape=True` stays on; never disable
    it; resume content going into PDF templates must be explicitly escaped (SR-05, mitigates
    SSTI — this was a literal misuse case in our D1 diagrams).

@@ -146,7 +146,8 @@ the end.
       blank optional values are omitted, and partial dates are validated for real
       month ranges and chronological order (`resume_schema.py`, SR-05/NFR-08)
 - [x] Schema tests cover blank optional values, input normalisation, invalid months,
-      chronological date order, and whitespace-only required fields
+      chronological date order, whitespace-only required fields, and secure URL
+      normalisation (bare domains become HTTPS; unsafe schemes/credentials are rejected)
 - [ ] Unit/integration tests: CRUD happy paths, IDOR rejection, schema validation
       (currently blocked by the session/auth bug above)
 - [ ] Comment all of the above with the SR ID it satisfies

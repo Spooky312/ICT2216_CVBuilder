@@ -45,12 +45,16 @@ practices" section.
   processing.
 - Jinja2 `autoescape=True` for HTML. Resume content going into PDF templates is
   *manually* escaped before rendering (prevents SSTI — this was UC-07's misuse case).
-- URL fields (LinkedIn, portfolio) restricted to http/https schemes; hostname allowlist
-  where feasible.
+- URL fields (LinkedIn, portfolio, projects) accept bare domains for usability and
+  normalise them to `https://` server-side. Explicit schemes are restricted to HTTP(S);
+  malformed hosts, embedded credentials, and `javascript:`, `data:`, or `file:` links
+  are rejected. The server renders these values but never fetches them.
 
 **Transport & Headers**
 - HTTPS only. HSTS max-age=31536000; includeSubDomains.
-- CSP: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:`
+- CSP: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+  img-src 'self' data:; frame-src 'self' blob:` (the narrow `blob:` allowance displays
+  locally generated PDF previews).
 - `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: strict-origin-when-cross-origin`.
 

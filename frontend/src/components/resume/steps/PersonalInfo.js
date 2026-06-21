@@ -40,14 +40,14 @@ export default function PersonalInfo({ data, onChange, errors = {}, onFieldBlur 
           <label htmlFor="personal-linkedin">LinkedIn URL</label>
           <input id="personal-linkedin" type="url" value={data.linkedin || ''} onChange={set('linkedin')}
             onBlur={() => onFieldBlur('linkedin')} maxLength={255}
-            placeholder="https://linkedin.com/in/yourname"
+            placeholder="linkedin.com/in/yourname"
             {...errorProps(errors, 'linkedin', 'personal-linkedin')} />
           <FieldError errors={errors} name="linkedin" inputId="personal-linkedin" />
         </div>
         <div className="form-group">
           <label htmlFor="personal-portfolio">Portfolio / Website</label>
           <input id="personal-portfolio" type="url" value={data.portfolio || ''} onChange={set('portfolio')}
-            onBlur={() => onFieldBlur('portfolio')} maxLength={255} placeholder="https://yourwebsite.com"
+            onBlur={() => onFieldBlur('portfolio')} maxLength={255} placeholder="yourwebsite.com"
             {...errorProps(errors, 'portfolio', 'personal-portfolio')} />
           <FieldError errors={errors} name="portfolio" inputId="personal-portfolio" />
         </div>

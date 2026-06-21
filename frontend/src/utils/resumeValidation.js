@@ -2,7 +2,6 @@ import { RESUME_STEPS } from '../components/resume/resumeSteps';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\s+\-()]{7,20}$/;
-const URL_RE = /^https?:\/\/.+\..+/i;
 const DATE_RE = /^\d{4}(-\d{2})?$/;
 const END_DATE_RE = /^(\d{4}(-\d{2})?|Present)$/;
 
@@ -20,6 +19,35 @@ function required(value, label) {
 
 function maxLength(value, max, label) {
   return text(value).length > max ? `${label} must be ${max} characters or fewer.` : '';
+}
+
+function normaliseWebUrl(value) {
+  const clean = text(value);
+  if (!clean) return '';
+  if (/\s/.test(clean)) return null;
+  if (/^[a-z][a-z\d+.-]*:/i.test(clean) && !/^https?:\/\//i.test(clean)) return null;
+
+  const candidate = /^https?:\/\//i.test(clean)
+    ? clean
+    : (clean.startsWith('//') ? `https:${clean}` : `https://${clean}`);
+  try {
+    const parsed = new URL(candidate);
+    if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return null;
+    const labels = parsed.hostname.replace(/\.$/, '').split('.');
+    if (labels.length < 2 || labels.some((label) => !label || label.length > 63
+      || label.startsWith('-') || label.endsWith('-') || !/^[a-z\d-]+$/i.test(label))) return null;
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
+function webUrlError(value, label) {
+  const clean = text(value);
+  if (!clean) return '';
+  const normalised = normaliseWebUrl(clean);
+  if (!normalised) return 'Enter a valid web address, such as example.com.';
+  return normalised.length > 255 ? `${label} must be 255 characters or fewer.` : '';
 }
 
 function dateError(value, allowPresent = false) {
@@ -63,10 +91,7 @@ function validatePersonal(personal = {}) {
   }
   add(errors, 'location', maxLength(personal.location, 100, 'Location'));
   ['linkedin', 'portfolio'].forEach((field) => {
-    add(errors, field, maxLength(personal[field], 255, field === 'linkedin' ? 'LinkedIn URL' : 'Portfolio URL'));
-    if (text(personal[field]) && !URL_RE.test(text(personal[field]))) {
-      add(errors, field, 'Enter a complete URL beginning with http:// or https://.');
-    }
+    add(errors, field, webUrlError(personal[field], field === 'linkedin' ? 'LinkedIn URL' : 'Portfolio URL'));
   });
   add(errors, 'summary', maxLength(personal.summary, 500, 'Summary'));
   return errors;
@@ -116,10 +141,7 @@ function validateProjects(entries = []) {
   entries.forEach((entry, index) => {
     add(errors, `${index}.name`, required(entry.name, 'Project name') || maxLength(entry.name, 200, 'Project name'));
     add(errors, `${index}.description`, maxLength(entry.description, 500, 'Description'));
-    add(errors, `${index}.url`, maxLength(entry.url, 255, 'Project URL'));
-    if (text(entry.url) && !URL_RE.test(text(entry.url))) {
-      add(errors, `${index}.url`, 'Enter a complete URL beginning with http:// or https://.');
-    }
+    add(errors, `${index}.url`, webUrlError(entry.url, 'Project URL'));
     if ((entry.technologies || []).length > 15) add(errors, `${index}.technologies`, 'Add no more than 15 technologies.');
     (entry.technologies || []).forEach((item) => {
       if (text(item).length > 50) add(errors, `${index}.technologies`, 'Each technology must be 50 characters or fewer.');

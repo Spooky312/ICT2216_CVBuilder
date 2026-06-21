@@ -85,10 +85,10 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
                 onChange={(e) => update(i, 'url', e.target.value)}
                 onBlur={() => onFieldBlur(`${i}.url`)}
                 maxLength={255}
-                placeholder="https://github.com/you/project"
+                placeholder="github.com/you/project"
                 {...errorProps(errors, `${i}.url`, `project-${i}-url`)}
               />
-              <small className="field-hint">Must start with http:// or https://, or leave blank</small>
+              <small className="field-hint">We’ll add https:// automatically</small>
               <FieldError errors={errors} name={`${i}.url`} inputId={`project-${i}-url`} />
             </div>
           </div>

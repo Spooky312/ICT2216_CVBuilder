@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urlsplit, urlunsplit
 from marshmallow import (
-    Schema, fields, validate, validates, validates_schema, pre_load, ValidationError,
+    Schema, fields, validate, validates_schema, pre_load, ValidationError,
 )
-
-URL_PATTERN = re.compile(r'^https?://.+\..+', re.IGNORECASE)
 
 # Single source of truth for template ids and their display metadata.
 # Both the validation schema (OneOf) and the admin/resume routes reference this.
@@ -101,9 +100,53 @@ def _description_field() -> fields.Str:
     return fields.Str(validate=validate.Length(max=MAX_TEXT))
 
 
-def safe_url(value: str) -> None:
-    if value and not URL_PATTERN.match(value):
-        raise ValidationError("URL must start with http:// or https://")
+def normalise_web_url(value: str) -> str:
+    """Add HTTPS to bare domains and reject unsafe or ambiguous URLs."""
+    clean = value.strip()
+    if not clean:
+        return clean
+    if any(character.isspace() for character in clean):
+        raise ValidationError("Enter a valid web address without spaces")
+
+    candidate = clean
+    supplied = urlsplit(clean)
+    if supplied.scheme:
+        if supplied.scheme.lower() not in {"http", "https"}:
+            raise ValidationError("Only http:// and https:// links are allowed")
+    elif clean.startswith("//"):
+        candidate = f"https:{clean}"
+    else:
+        candidate = f"https://{clean}"
+
+    parsed = urlsplit(candidate)
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        raise ValidationError("Enter a valid web address, such as example.com")
+    if parsed.username or parsed.password:
+        raise ValidationError("Links containing usernames or passwords are not allowed")
+
+    try:
+        hostname = parsed.hostname.encode("idna").decode("ascii").rstrip(".")
+        parsed.port  # Validate the optional port range.
+    except (UnicodeError, ValueError):
+        raise ValidationError("Enter a valid web address, such as example.com")
+
+    labels = hostname.split(".")
+    if len(labels) < 2 or any(
+        not label or len(label) > 63 or label.startswith("-") or label.endswith("-")
+        or not re.fullmatch(r"[A-Za-z0-9-]+", label)
+        for label in labels
+    ):
+        raise ValidationError("Enter a valid web address, such as example.com")
+
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc, parsed.path, parsed.query, parsed.fragment))
+
+
+class SafeWebUrl(fields.Str):
+    """URL field that canonicalises user-friendly domains before validation."""
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        result = super()._deserialize(value, attr, data, **kwargs)
+        return normalise_web_url(result) if result else result
 
 
 class PersonalInfoSchema(NormalisedSchema):
@@ -112,19 +155,9 @@ class PersonalInfoSchema(NormalisedSchema):
     phone = fields.Str(validate=validate.Regexp(r'^[\d\s\+\-\(\)]{7,20}$',
                                                  error="Invalid phone format"))
     location = fields.Str(validate=validate.Length(max=100))
-    linkedin = fields.Str(validate=validate.Length(max=255))
-    portfolio = fields.Str(validate=validate.Length(max=255))
+    linkedin = SafeWebUrl(validate=validate.Length(max=255))
+    portfolio = SafeWebUrl(validate=validate.Length(max=255))
     summary = _description_field()
-
-    @validates("linkedin")
-    def validate_linkedin(self, value: str) -> None:
-        if value:
-            safe_url(value)
-
-    @validates("portfolio")
-    def validate_portfolio(self, value: str) -> None:
-        if value:
-            safe_url(value)
 
 
 class EducationEntrySchema(DatedEntrySchema):
@@ -155,14 +188,9 @@ class ProjectEntrySchema(DatedEntrySchema):
     description = _description_field()
     technologies = fields.List(fields.Str(validate=validate.Length(max=50)),
                                 validate=validate.Length(max=15))
-    url = fields.Str(validate=validate.Length(max=255))
+    url = SafeWebUrl(validate=validate.Length(max=255))
     start_date = _start_date_field()
     end_date = _end_date_field()
-
-    @validates("url")
-    def validate_url(self, value: str) -> None:
-        if value:
-            safe_url(value)
 
 
 class SkillsSchema(NormalisedSchema):
