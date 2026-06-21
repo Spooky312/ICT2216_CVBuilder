@@ -1,4 +1,4 @@
-name: Python and React SonarQube Analysis
+﻿name: Python and React SonarQube Analysis
 
 on:
   push:
@@ -16,6 +16,8 @@ jobs:
       SECRET_KEY: test-secret-key
       JWT_SECRET_KEY: test-jwt-secret-key
       REDIS_URL: memory://
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
     steps:
       - name: Checkout repository
@@ -55,8 +57,15 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Report skipped SonarQube scan
+        if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
+        run: |
+          echo "SonarQube scan skipped because SONAR_TOKEN and/or SONAR_HOST_URL is not configured."
+          echo "Add repository secrets SONAR_TOKEN and SONAR_HOST_URL to enable analysis."
+
       - name: SonarQube Scan
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         uses: sonarsource/sonarqube-scan-action@master
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
