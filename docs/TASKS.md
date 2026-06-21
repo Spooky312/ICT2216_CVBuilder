@@ -18,6 +18,9 @@ order (top one was blocking everything below it, now fixed):
 - [x] `AuditLog.log_id` was `BigInteger` — SQLite doesn't auto-increment `BIGINT`
       primary keys, so every audit-logged request crashed with `NOT NULL constraint
       failed`. Fixed → `Integer`, in both the model and the initial migration.
+- [ ] Add a short note to the D2 report explaining the `log_id` type change (D1 schema
+      documents `BIGSERIAL`; SQLite test DB requires `Integer` — production Postgres
+      can keep `BIGSERIAL`).
 - [ ] **No TOTP/2FA exists at all** — no `pyotp`, no secret field on `User`, no
       verify-totp route. This isn't just a test failure, it's a missing hard
       requirement (`CLAUDE.md`: "session established only after password + TOTP both
@@ -26,6 +29,11 @@ order (top one was blocking everything below it, now fixed):
       gate in `login()` can never trigger. `test_login_unverified` fails (expects 403,
       gets 200). Stub left in place since no email-sending exists yet (`MAIL_*` env
       vars are unused).
+- [ ] Decide whether to keep the email-verification gate at all — no FR/SR in the D1
+      report specifies it (only TOTP, FR-08, is the documented second factor; email is
+      scoped elsewhere as lockout-notification only). Either remove the gate and the
+      `email_verified` field, or add it properly to the requirement traceability if
+      it's being kept.
 - [ ] `test_account_lockout` fails: `TypeError: can't compare...` — datetime
       comparison bug in `user.is_locked()` (naive vs. tz-aware `datetime`, probably).
 - [ ] All `test_resumes.py` tests fail with `401` — login "succeeds" (200) in the test
@@ -42,9 +50,9 @@ order (top one was blocking everything below it, now fixed):
 
 - [x] Docker Compose: Nginx + Flask + Postgres + Redis, internal-only networking —
       confirmed working locally and on a real EC2 instance
-- [ ] Nginx TLS cert — config supports auto-detect HTTP/HTTPS, but no cert generated on
-      EC2 yet (self-signed is fine per `ARCHITECTURE.md`); running `FLASK_ENV=development`
-      over plain HTTP for now
+- [ ] Generate the Nginx TLS cert on EC2 (self-signed is fine per `ARCHITECTURE.md`)
+      and switch off plain-HTTP/`FLASK_ENV=development` before SR-08 can be claimed as
+      satisfied — config already auto-detects HTTP/HTTPS, just needs the cert
 - [x] Repo structure decided and documented
 - [x] GitHub Actions CI: `ci.yml`, `codeql.yml`, `python-static-analysis.yml`,
       `sonarqube.yml` exist, trigger on push/PR to `main`/`master`/`dev` — not all green,
@@ -66,21 +74,39 @@ order (top one was blocking everything below it, now fixed):
 - [ ] Tests: smoke test for stack boot + `/health`; test asserting security headers are
       present on a sample response
 
-## Phase 1 — Database schema
+## Phase 1 — Dependency scanning & CI hardening
+**Covers:** SR-11, NFR-10
+
+Pulled forward from its original spot late in the build — this only needs
+`requirements.txt`/`package.json`, both of which already exist from Phase 0, so there's
+no reason to wait on app features. D1's report also already describes this as
+implemented, so it should be true in CI as early as possible rather than bolted on at
+the end.
+
+- [ ] Build the OWASP Dependency-Check GitHub Actions step — dedicated step, runs on
+      every PR, blocks merge on critical/high findings, covers both server- and
+      client-side dependencies, matching what D1 already describes
+- [x] SonarQube workflow exists (`sonarqube.yml`) — currently blocked from actually
+      scanning because the pytest step it runs first fails (same bugs as above); will
+      go green once Phase 3's auth and test fixes land
+- [ ] Publish dependency-check results as a build artefact
+- [ ] Full dependency list documented
+
+## Phase 2 — Database schema
 
 - [x] SQLAlchemy models: `User`, `Resume`, `AuditLog` exist and match
       `docs/DATABASE_SCHEMA.md`. **Note:** "templates" is not a DB table — it's a
       hardcoded allow-list (`ALLOWED_TEMPLATES`/`TEMPLATE_METADATA` in
-      `resume_schema.py`), which is intentional (matches the Phase 4 anti-tampering
+      `resume_schema.py`), which is intentional (matches the Phase 5 anti-tampering
       allow-list requirement), just not literally a `templates` model
 - [x] Alembic migrations set up and apply cleanly (`37c8ca2810c5`, `59a547ee0d05`)
-- [ ] Resolve the two open schema questions: (1) `is_active`-style columns for
-      FR-12/FR-13 deactivate behaviour — `User.locked_until` covers lock/unlock, confirm
-      this satisfies the requirement or if a separate flag is still needed; (2) RDS vs.
-      Docker-Postgres labelling
+- [ ] Decide between `account_locked BOOLEAN` (as documented in D1's schema) and
+      `locked_until TIMESTAMPTZ` (current code) for the lock/unlock mechanism, then make
+      the model and the D2 schema docs match — pick one, don't carry both
+- [ ] Resolve RDS vs. Docker-Postgres labelling
 - [ ] Tests: model/constraint tests, migration upgrade/downgrade tests
 
-## Phase 2 — Authentication & session management
+## Phase 3 — Authentication & session management
 **Covers:** FR-01, FR-02, FR-06, FR-07, FR-08 | SR-01, SR-02, SR-03, SR-04, SR-13, SR-15
 
 - [x] `POST /auth/register` — bcrypt (cost 12 via `BCRYPT_LOG_ROUNDS`), password
@@ -104,7 +130,7 @@ order (top one was blocking everything below it, now fixed):
       blocked by the bugs above)
 - [ ] Comment all of the above with the SR ID it satisfies
 
-## Phase 3 — Profile & resume CRUD
+## Phase 4 — Profile & resume CRUD
 **Covers:** FR-03, FR-04, FR-05, FR-09, FR-11 | SR-05, SR-06, SR-07, SR-09
 
 - [x] `GET/PUT/DELETE /profile` — ownership via authenticated user ID
@@ -116,40 +142,48 @@ order (top one was blocking everything below it, now fixed):
 - [x] `content_json` shape settled (personal_info, education, experience, projects,
       skills — see `tests/test_resumes.py` for the agreed contract)
 - [x] `GET /resumes/templates` — lists active templates (FR-11)
+- [ ] Confirm which validation library is actually used for `content_json` (D1 cites
+      "Marshmallow or Pydantic" as the SR-05 whitelist-schema mechanism) and name it
+      explicitly in code comments and the D2 report
 - [ ] Unit/integration tests: CRUD happy paths, IDOR rejection, schema validation
       (currently blocked by the session/auth bug above)
 - [ ] Comment all of the above with the SR ID it satisfies
 
-## Phase 4 — PDF export & templates
+## Phase 5 — PDF export & templates
 **Covers:** FR-10, FR-11 (template rendering side) | SR-05 (SSTI prevention specifically)
 
 - [x] WeasyPrint integration (`app/services/pdf_service.py`)
 - [x] Jinja2 templates with `autoescape=True` via `select_autoescape`
 - [x] Server-side template ID validation against `ALLOWED_TEMPLATES` allow-list
-- [x] `GET /resumes/{id}/export` rate limited — **but currently `20 per hour`, not the
-      documented `10/min/user`** — confirm which limit is actually intended and fix the
-      mismatch
-- [ ] Basic load/performance check against NFR-01 (PDF within 5s/95th percentile) — no
-      evidence this has been done yet
+- [ ] Fix `GET /resumes/{id}/export` rate limit — currently `20 per hour`, should be
+      `10 per minute per authenticated user` to match the documented design
+- [ ] Run a basic load/performance check against NFR-01 (PDF within 5s/95th percentile
+      under 100 concurrent users) and record the result
 - [ ] Tests: malicious payloads in resume fields (script tags, `{{7*7}}`, oversized
       input) asserting neutralisation
 - [ ] Comment all of the above with the SR ID it satisfies
 
-## Phase 5 — Admin module & RBAC
+## Phase 6 — Admin module & RBAC
 **Covers:** FR-12 (admin side), FR-13, FR-14 | SR-06, SR-07, SR-10, SR-14
 
 - [x] RBAC decorator (`admin_required` in `admin.py`) — does a live DB role lookup per
       request, not just a JWT claim, so a demoted admin loses access immediately
-- [x] `GET /admin/users`, `POST /admin/users/{id}/lock`, `.../unlock` — covers FR-13
-      deactivate behaviour, implemented as lock/unlock rather than generic PUT/DELETE
-      (reasonable, just a different shape than originally scoped)
-- [x] `GET /admin/templates`, `PUT /admin/templates/{id}` — no POST/DELETE, which makes
-      sense since templates are a fixed allow-list, not a dynamic table
+- [x] `GET /admin/users`, `POST /admin/users/{id}/lock`, `.../unlock` — covers FR-13's
+      deactivate behaviour
+- [ ] Add `DELETE /admin/users/{id}` for permanent account deletion, or formally narrow
+      FR-13's scope to lock/unlock only and note the change in the D2 report — FR-13 as
+      written requires both deactivate and permanent delete
+- [x] `GET /admin/templates`, `PUT /admin/templates/{id}` — no POST/DELETE
+- [ ] Add `POST /admin/templates` for adding new templates, or formally narrow FR-12's
+      scope to update/deactivate only and note the change in the D2 report — FR-12 as
+      written requires add, update, and deactivate
 - [x] `GET /admin/audit-log` — confirmed read-only, no write/delete route exists (SR-14)
 - [ ] Tests: non-admin gets 403 on admin routes, privilege escalation blocked
+- [ ] Add a test confirming 90-day audit log retention is actually enforced (SR-10/
+      NFR-06), not just that entries are written
 - [ ] Comment all of the above with the SR ID it satisfies
 
-## Phase 6 — Frontend (React)
+## Phase 7 — Frontend (React)
 
 More complete than previously tracked — confirmed present: `Register.js`, `Login.js`,
 full `ResumeWizard` (`PersonalInfo`, `Education`, `Experience`, `Skills`, `Projects`,
@@ -157,9 +191,9 @@ full `ResumeWizard` (`PersonalInfo`, `Education`, `Experience`, `Skills`, `Proje
 `ProtectedRoute`.
 
 - [x] Registration + login UI — **no TOTP step in the UI either**, consistent with the
-      backend gap above; will need a QR/TOTP-entry step once Phase 2's TOTP work lands
+      backend gap above; will need a QR/TOTP-entry step once Phase 3's TOTP work lands
 - [x] Profile view/edit/delete UI
-- [x] Resume creation wizard — all steps present, matches Phase 3's `content_json` shape
+- [x] Resume creation wizard — all steps present, matches Phase 4's `content_json` shape
 - [x] Template selection + export/download UI
 - [x] Admin UI shell (`AdminPanel.js`) — users, templates, audit log
 - [x] CSRF token handling present (`services/api.js`)
@@ -167,15 +201,6 @@ full `ResumeWizard` (`PersonalInfo`, `Education`, `Experience`, `Skills`, `Proje
       JWT relies purely on the HttpOnly cookie, as required
 - [ ] Tests: no frontend test runner configured yet (Jest/RTL removed with CRA) —
       Vitest + React Testing Library still needed
-
-## Phase 7 — Dependency scanning & CI hardening
-**Covers:** SR-11, NFR-10
-
-- [ ] OWASP Dependency-Check step in GitHub Actions
-- [x] SonarQube workflow exists (`sonarqube.yml`) — currently blocked from actually
-      scanning because the pytest step it runs first fails (same bugs as above)
-- [ ] Publish dependency-check results as a build artefact
-- [ ] Full dependency list documented
 
 ## Phase 8 — Test automation pass
 
@@ -196,6 +221,10 @@ The D2 report itself (≤30 pages) needs:
 4. Code snippet evidence of OWASP best practices, **cited by file name**
 5. Dependency list + dependency-check evidence
 6. Automated testing evidence + findings
+7. Write up each D1→D2 divergence as a documented decision: `log_id` type change,
+   `account_locked`/`locked_until` schema choice, CSRF mechanism (JWT cookie vs.
+   Flask-WTF), export rate limit value, and any FR-12/FR-13 scope changes on template
+   "add" / account "permanent delete"
 
 Start assembling 3-4 days before the deadline.
 
@@ -203,7 +232,7 @@ Start assembling 3-4 days before the deadline.
 
 | Week | Focus |
 |---|---|
-| 1 | Phase 0 (infra) → Phase 1 (schema) → Phase 2 (auth) started |
-| 2 | Phase 2 finished — **including the missing TOTP work** — Phase 3 (CRUD), Phase 4 (PDF export) started, Phase 6 (frontend) started |
-| 3 | Phase 4 finished, Phase 5 (admin), Phase 7 (dependency scanning), Phase 8 (test coverage gaps) |
+| 1 | Phase 0 (infra) → Phase 1 (dependency scanning) → Phase 2 (schema) → Phase 3 (auth) started |
+| 2 | Phase 3 finished — **including the missing TOTP work** — Phase 4 (CRUD), Phase 5 (PDF export) started, Phase 7 (frontend) started |
+| 3 | Phase 5 finished, Phase 6 (admin), Phase 8 (test coverage gaps) |
 | 3.5 (final days) | Phase 9 (report assembly), UML diagrams finalised, full CI green, peer appraisal prep |
