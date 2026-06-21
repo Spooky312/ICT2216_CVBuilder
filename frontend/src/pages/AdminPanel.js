@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   adminListUsers, adminLockUser, adminUnlockUser,
   adminGetAuditLog, adminListTemplates, adminUpdateTemplate,
@@ -7,7 +7,7 @@ import Spinner from '../components/common/Spinner';
 import Pagination from '../components/common/Pagination';
 
 function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return 'â€”';
   return new Date(iso).toLocaleString(undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -21,7 +21,6 @@ function isLocked(user) {
 
 function StatsBar({ users, logs }) {
   const lockedCount   = users.filter(isLocked).length;
-  const unverified    = users.filter((u) => !u.email_verified).length;
   const adminCount    = users.filter((u) => u.role === 'admin').length;
 
   return (
@@ -33,10 +32,6 @@ function StatsBar({ users, logs }) {
       <div className="stat-card">
         <span className="stat-value stat-value-red">{lockedCount}</span>
         <span className="stat-label">Locked</span>
-      </div>
-      <div className="stat-card">
-        <span className="stat-value stat-value-yellow">{unverified}</span>
-        <span className="stat-label">Unverified</span>
       </div>
       <div className="stat-card">
         <span className="stat-value stat-value-purple">{adminCount}</span>
@@ -109,7 +104,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
       <div className="admin-toolbar">
         <input
           className="admin-search"
-          placeholder="Search by name or email…"
+          placeholder="Search by name or emailâ€¦"
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         />
@@ -122,7 +117,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
           <option value="user">User</option>
           <option value="admin">Admin</option>
         </select>
-        <button className="btn-secondary-sm" onClick={onRefresh}>↻ Refresh</button>
+        <button className="btn-secondary-sm" onClick={onRefresh}>â†» Refresh</button>
       </div>
 
       <p className="admin-count">
@@ -137,7 +132,6 @@ function UsersTab({ users, setUsers, onRefresh }) {
               <th>Name</th>
               <th>Email</th>
               <th>Role</th>
-              <th>Verified</th>
               <th>Status</th>
               <th>Joined</th>
               <th>Actions</th>
@@ -146,7 +140,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
           <tbody>
             {visible.length === 0 && (
               <tr>
-                <td colSpan={7} className="admin-empty">No users match your filters.</td>
+                <td colSpan={6} className="admin-empty">No users match your filters.</td>
               </tr>
             )}
             {visible.map((u) => {
@@ -161,13 +155,8 @@ function UsersTab({ users, setUsers, onRefresh }) {
                       <span className={`badge badge-${u.role}`}>{u.role}</span>
                     </td>
                     <td>
-                      <span className={`badge ${u.email_verified ? 'badge-verified' : 'badge-unverified'}`}>
-                        {u.email_verified ? '✓ Verified' : '✗ Unverified'}
-                      </span>
-                    </td>
-                    <td>
                       {locked
-                        ? <span className="badge badge-locked" title={`Until ${fmtDate(u.locked_until)}`}>🔒 Locked</span>
+                        ? <span className="badge badge-locked" title={`Until ${fmtDate(u.locked_until)}`}>ðŸ”’ Locked</span>
                         : <span className="badge badge-active">Active</span>}
                     </td>
                     <td className="log-time">{fmtDate(u.created_at)}</td>
@@ -193,7 +182,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
 
                   {lockTarget?.user_id === u.user_id && (
                     <tr className="lock-form-row">
-                      <td colSpan={7}>
+                      <td colSpan={6}>
                         <div className="lock-form">
                           <span>Lock <strong>{u.full_name}</strong> for</span>
                           <input
@@ -234,7 +223,6 @@ function UsersTab({ users, setUsers, onRefresh }) {
 const EVENT_COLORS = {
   // Success / good
   login_success:              'event-success',
-  email_verified:             'event-success',
   user_registered:            'event-success',
   password_changed:           'event-success',
   // Informational
@@ -279,12 +267,12 @@ function LogsTab({ logs, onRefresh }) {
           <option value="">All event types</option>
           {eventTypes.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <button className="btn-secondary-sm" onClick={onRefresh}>↻ Refresh</button>
+        <button className="btn-secondary-sm" onClick={onRefresh}>â†» Refresh</button>
       </div>
 
       <p className="admin-count">
         {filtered.length} event{filtered.length !== 1 ? 's' : ''}
-        {filter && ` — filtered to "${filter}"`}
+        {filter && ` â€” filtered to "${filter}"`}
       </p>
 
       <div className="admin-table-wrap">
@@ -316,16 +304,16 @@ function LogsTab({ logs, onRefresh }) {
                       <span className={`event-badge ${colorClass}`}>{l.event_type}</span>
                     </td>
                     <td className="log-uuid">
-                      <small title={l.user_id}>{l.user_id ? l.user_id.slice(0, 8) + '…' : '—'}</small>
+                      <small title={l.user_id}>{l.user_id ? l.user_id.slice(0, 8) + 'â€¦' : 'â€”'}</small>
                     </td>
-                    <td>{l.ip_address || '—'}</td>
+                    <td>{l.ip_address || 'â€”'}</td>
                     <td>
                       {hasMetadata && (
                         <button
                           className="btn-link-sm"
                           onClick={() => setExpanded(isOpen ? null : l.log_id)}
                         >
-                          {isOpen ? 'Hide ▲' : 'Details ▼'}
+                          {isOpen ? 'Hide â–²' : 'Details â–¼'}
                         </button>
                       )}
                     </td>
@@ -527,3 +515,4 @@ export default function AdminPanel() {
     </div>
   );
 }
+

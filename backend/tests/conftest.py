@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 from app import create_app
 from app.extensions import db as _db
 from app.models.user import User
@@ -29,9 +29,10 @@ def db(app):
 
 
 @pytest.fixture
-def verified_user(db):
-    user = User(email="test@example.com", full_name="Test User", email_verified=True)
+def test_user(db):
+    user = User(email="test@example.com", full_name="Test User")
     user.set_password("SecurePass1!")
     db.session.add(user)
     db.session.commit()
     return user
+

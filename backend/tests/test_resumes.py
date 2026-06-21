@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 
 LOGIN_URL = "/auth/login"
 RESUMES_URL = "/resumes"
@@ -30,8 +30,8 @@ def _login(client, user):
     return resp
 
 
-def test_create_resume(client, db, verified_user):
-    _login(client, verified_user)
+def test_create_resume(client, db, test_user):
+    _login(client, test_user)
     resp = client.post(RESUMES_URL, json={
         "title": "My Resume",
         "template_id": "modern",
@@ -43,8 +43,8 @@ def test_create_resume(client, db, verified_user):
     assert "resume_id" in data
 
 
-def test_list_resumes(client, db, verified_user):
-    _login(client, verified_user)
+def test_list_resumes(client, db, test_user):
+    _login(client, test_user)
     client.post(RESUMES_URL, json={
         "title": "Resume 1", "template_id": "classic", "content_json": SAMPLE_CONTENT
     })
@@ -53,8 +53,8 @@ def test_list_resumes(client, db, verified_user):
     assert len(resp.get_json()) >= 1
 
 
-def test_get_resume(client, db, verified_user):
-    _login(client, verified_user)
+def test_get_resume(client, db, test_user):
+    _login(client, test_user)
     create_resp = client.post(RESUMES_URL, json={
         "title": "My Resume", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
@@ -63,8 +63,8 @@ def test_get_resume(client, db, verified_user):
     assert resp.status_code == 200
 
 
-def test_update_resume(client, db, verified_user):
-    _login(client, verified_user)
+def test_update_resume(client, db, test_user):
+    _login(client, test_user)
     create_resp = client.post(RESUMES_URL, json={
         "title": "Old Title", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
@@ -74,8 +74,8 @@ def test_update_resume(client, db, verified_user):
     assert resp.get_json()["title"] == "New Title"
 
 
-def test_delete_resume(client, db, verified_user):
-    _login(client, verified_user)
+def test_delete_resume(client, db, test_user):
+    _login(client, test_user)
     create_resp = client.post(RESUMES_URL, json={
         "title": "Delete Me", "template_id": "minimal", "content_json": SAMPLE_CONTENT
     })
@@ -85,8 +85,8 @@ def test_delete_resume(client, db, verified_user):
     assert client.get(f"{RESUMES_URL}/{resume_id}").status_code == 404
 
 
-def test_duplicate_resume(client, db, verified_user):
-    _login(client, verified_user)
+def test_duplicate_resume(client, db, test_user):
+    _login(client, test_user)
     create_resp = client.post(RESUMES_URL, json={
         "title": "Original", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
@@ -96,8 +96,8 @@ def test_duplicate_resume(client, db, verified_user):
     assert "(copy)" in resp.get_json()["title"]
 
 
-def test_invalid_template(client, db, verified_user):
-    _login(client, verified_user)
+def test_invalid_template(client, db, test_user):
+    _login(client, test_user)
     resp = client.post(RESUMES_URL, json={
         "title": "Bad Template", "template_id": "hacker", "content_json": SAMPLE_CONTENT
     })
@@ -107,3 +107,4 @@ def test_invalid_template(client, db, verified_user):
 def test_unauthenticated_access(client, db):
     resp = client.get(RESUMES_URL)
     assert resp.status_code == 401
+

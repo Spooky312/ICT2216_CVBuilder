@@ -1,4 +1,4 @@
-/* ── Reset & Base ── */
+﻿/* â”€â”€ Reset & Base â”€â”€ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --blue: #2563eb;
@@ -27,13 +27,13 @@ a { color: var(--blue); text-decoration: none; }
 a:hover { text-decoration: underline; }
 input, textarea, select { font-family: inherit; font-size: 14px; }
 
-/* ── Layout ── */
+/* â”€â”€ Layout â”€â”€ */
 .main-content { min-height: calc(100vh - 60px); }
 .page-container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
 .center-page { display: flex; flex-direction: column; align-items: center;
                justify-content: center; min-height: 60vh; gap: 1rem; }
 
-/* ── Navbar ── */
+/* â”€â”€ Navbar â”€â”€ */
 .navbar { display: flex; align-items: center; justify-content: space-between;
           padding: 0 1.5rem; height: 60px; background: #fff;
           border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; z-index: 100; }
@@ -45,7 +45,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
             color: var(--gray-600); font-weight: 500; padding: 0; }
 .btn-link:hover { color: var(--red); }
 
-/* ── Buttons ── */
+/* â”€â”€ Buttons â”€â”€ */
 .btn-primary { background: var(--blue); color: #fff; border: none; border-radius: var(--radius);
                padding: 0.55rem 1.25rem; font-size: 14px; font-weight: 600; cursor: pointer;
                display: inline-flex; align-items: center; gap: 0.4rem; }
@@ -73,20 +73,20 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .btn-full { width: 100%; justify-content: center; padding: 0.65rem; }
 .btn-lg { padding: 0.75rem 2rem; font-size: 15px; }
 
-/* ── Alerts ── */
+/* â”€â”€ Alerts â”€â”€ */
 .alert { padding: 0.75rem 1rem; border-radius: var(--radius); font-size: 14px; margin-bottom: 1rem; }
 .alert-error { background: var(--red-light); color: var(--red); border: 1px solid #fecaca; }
 .alert-success { background: var(--green-light); color: var(--green); border: 1px solid #bbf7d0; }
 .alert-warning { background: var(--yellow-light); color: #92400e; border: 1px solid var(--yellow-border); }
 
-/* ── Auth Cards ── */
+/* â”€â”€ Auth Cards â”€â”€ */
 .auth-card { max-width: 440px; margin: 4rem auto; background: #fff; border-radius: 12px;
              box-shadow: var(--shadow-md); padding: 2rem 2.5rem; }
 .auth-card h2 { font-size: 22px; margin-bottom: 0.25rem; }
 .auth-footer { text-align: center; margin-top: 1.25rem; font-size: 14px; color: var(--gray-600); }
 .text-muted { color: var(--gray-400); font-size: 14px; margin-bottom: 1.25rem; }
 
-/* ── Forms ── */
+/* â”€â”€ Forms â”€â”€ */
 .form-group { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
 .form-group label { font-size: 13px; font-weight: 600; color: var(--gray-600); }
 .form-group input, .form-group textarea, .form-group select {
@@ -97,13 +97,13 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .field-error { color: var(--red); font-size: 12px; }
 
-/* ── Password rules ── */
+/* â”€â”€ Password rules â”€â”€ */
 .password-rules { list-style: none; margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .password-rules li { font-size: 12px; padding: 2px 8px; border-radius: 20px; }
 .rule-ok { background: var(--green-light); color: var(--green); }
 .rule-fail { background: var(--gray-100); color: var(--gray-400); }
 
-/* ── Home ── */
+/* â”€â”€ Home â”€â”€ */
 .home-page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
 .hero { text-align: center; padding: 5rem 1rem 3rem; }
 .hero h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 800; line-height: 1.15; }
@@ -118,7 +118,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .feature-card h3 { font-size: 15px; margin-bottom: 0.5rem; }
 .feature-card p { font-size: 13.5px; color: var(--gray-600); line-height: 1.55; }
 
-/* ── Dashboard ── */
+/* â”€â”€ Dashboard â”€â”€ */
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 .page-header h1 { font-size: 22px; }
 .resume-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
@@ -138,7 +138,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .empty-hint { color: var(--gray-400); font-size: 14px; font-style: italic; padding: 1rem 0; }
 .field-hint { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
 
-/* ── Wizard ── */
+/* â”€â”€ Wizard â”€â”€ */
 .wizard-container { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem; }
 .wizard-header { margin-bottom: 1.5rem; }
 .wizard-title-input { font-size: 20px; font-weight: 700; border: none; border-bottom: 2px solid var(--gray-200);
@@ -183,7 +183,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .template-desc { font-size: 13px; color: var(--gray-600); line-height: 1.5; }
 .template-check { margin-top: 0.75rem; color: var(--blue); font-weight: 700; font-size: 13px; }
 
-/* ── Profile ── */
+/* â”€â”€ Profile â”€â”€ */
 .profile-section { background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
                    padding: 1.5rem; margin-bottom: 1.5rem; }
 .profile-section h2 { font-size: 16px; margin-bottom: 1rem; }
@@ -192,7 +192,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .danger-zone { border-color: #fecaca; }
 .danger-zone h2 { color: var(--red); }
 
-/* ── Admin ── */
+/* â”€â”€ Admin â”€â”€ */
 .tab-bar { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 1px solid var(--gray-200); }
 .tab { background: none; border: none; padding: 0.65rem 1.25rem; font-size: 14px; font-weight: 600;
        color: var(--gray-400); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
@@ -245,8 +245,6 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .badge-inactive  { background: var(--gray-100); color: var(--gray-400); }
 .badge-active    { background: var(--green-light); color: var(--green); }
 .badge-locked    { background: var(--red-light); color: var(--red); border: 1px solid #fecaca; }
-.badge-verified  { background: var(--green-light); color: var(--green); }
-.badge-unverified{ background: var(--yellow-light); color: #92400e; border: 1px solid var(--yellow-border); }
 
 /* Inline lock form */
 .lock-form-row td { background: #eff6ff !important; }
@@ -291,3 +289,4 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .template-edit-form textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
 .template-edit-form small { font-size: 12px; color: var(--gray-400); }
 .template-admin-list { display: flex; flex-direction: column; gap: 1rem; }
+
