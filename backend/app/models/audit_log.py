@@ -7,7 +7,7 @@ from app.extensions import db
 class AuditLog(db.Model):
     __tablename__ = "audit_log"
 
-    log_id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    log_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.UUID(as_uuid=True), nullable=True, index=True)
     event_type = db.Column(db.String(50), nullable=False)
     ip_address = db.Column(db.String(45), nullable=True)
