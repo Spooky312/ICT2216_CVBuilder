@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
-from marshmallow import Schema, fields, validate, validates, ValidationError
+from marshmallow import (
+    Schema, fields, validate, validates, validates_schema, pre_load, ValidationError,
+)
 
 URL_PATTERN = re.compile(r'^https?://.+\..+', re.IGNORECASE)
 
@@ -25,14 +27,73 @@ _DATE_ERROR = "Date must be YYYY or YYYY-MM"
 _END_DATE_ERROR = "Date must be YYYY, YYYY-MM, or Present"
 
 
+def _normalise_value(value):
+    """Trim strings and remove blank values before whitelist validation (SR-05)."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        values = [_normalise_value(item) for item in value]
+        return [item for item in values if item != ""]
+    if isinstance(value, dict):
+        values = {key: _normalise_value(item) for key, item in value.items()}
+        return {key: item for key, item in values.items() if item != ""}
+    return value
+
+
+class NormalisedSchema(Schema):
+    """Base schema that normalises user-entered resume content before validation."""
+
+    @pre_load
+    def normalise_input(self, data, **kwargs):
+        return _normalise_value(data)
+
+
+def _validate_partial_date(value: str, *, allow_present: bool = False) -> None:
+    if allow_present and value == "Present":
+        return
+    if not re.fullmatch(_START_DATE_RE, value):
+        raise ValidationError(_END_DATE_ERROR if allow_present else _DATE_ERROR)
+    parts = value.split("-")
+    if len(parts) == 2 and not 1 <= int(parts[1]) <= 12:
+        raise ValidationError("Month must be between 01 and 12")
+
+
+def _start_date_key(value: str) -> tuple[int, int]:
+    parts = value.split("-")
+    return int(parts[0]), int(parts[1]) if len(parts) == 2 else 1
+
+
+def _end_date_key(value: str) -> tuple[int, int] | None:
+    if value == "Present":
+        return None
+    parts = value.split("-")
+    return int(parts[0]), int(parts[1]) if len(parts) == 2 else 12
+
+
+class DatedEntrySchema(NormalisedSchema):
+    """Shared chronological validation for education, experience, and projects."""
+
+    @validates_schema
+    def validate_date_order(self, data, **kwargs) -> None:
+        start = data.get("start_date")
+        end = data.get("end_date")
+        if not start or not end:
+            return
+        end_key = _end_date_key(end)
+        if end_key is not None and end_key < _start_date_key(start):
+            raise ValidationError({
+                "end_date": ["End date must not be before start date."],
+            })
+
+
 def _start_date_field() -> fields.Str:
     """Shared start-date field: YYYY or YYYY-MM, optional."""
-    return fields.Str(validate=validate.Regexp(_START_DATE_RE, error=_DATE_ERROR))
+    return fields.Str(validate=lambda value: _validate_partial_date(value))
 
 
 def _end_date_field() -> fields.Str:
     """Shared end-date field: YYYY, YYYY-MM, or 'Present', optional."""
-    return fields.Str(validate=validate.Regexp(_END_DATE_RE, error=_END_DATE_ERROR))
+    return fields.Str(validate=lambda value: _validate_partial_date(value, allow_present=True))
 
 
 def _description_field() -> fields.Str:
@@ -45,7 +106,7 @@ def safe_url(value: str) -> None:
         raise ValidationError("URL must start with http:// or https://")
 
 
-class PersonalInfoSchema(Schema):
+class PersonalInfoSchema(NormalisedSchema):
     full_name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
     email = fields.Email(required=True)
     phone = fields.Str(validate=validate.Regexp(r'^[\d\s\+\-\(\)]{7,20}$',
@@ -66,7 +127,7 @@ class PersonalInfoSchema(Schema):
             safe_url(value)
 
 
-class EducationEntrySchema(Schema):
+class EducationEntrySchema(DatedEntrySchema):
     institution = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     degree = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     field_of_study = fields.Str(validate=validate.Length(max=200))
@@ -77,7 +138,7 @@ class EducationEntrySchema(Schema):
     description = _description_field()
 
 
-class ExperienceEntrySchema(Schema):
+class ExperienceEntrySchema(DatedEntrySchema):
     company = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     position = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     start_date = _start_date_field()
@@ -88,7 +149,7 @@ class ExperienceEntrySchema(Schema):
                                 validate=validate.Length(max=10))
 
 
-class ProjectEntrySchema(Schema):
+class ProjectEntrySchema(DatedEntrySchema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     description = _description_field()
     technologies = fields.List(fields.Str(validate=validate.Length(max=50)),
@@ -103,7 +164,7 @@ class ProjectEntrySchema(Schema):
             safe_url(value)
 
 
-class SkillsSchema(Schema):
+class SkillsSchema(NormalisedSchema):
     technical = fields.List(fields.Str(validate=validate.Length(max=50)),
                              validate=validate.Length(max=30))
     soft = fields.List(fields.Str(validate=validate.Length(max=50)),
@@ -114,7 +175,7 @@ class SkillsSchema(Schema):
                                   validate=validate.Length(max=10))
 
 
-class ResumeContentSchema(Schema):
+class ResumeContentSchema(NormalisedSchema):
     personal_info = fields.Nested(PersonalInfoSchema, required=True)
     education = fields.List(fields.Nested(EducationEntrySchema),
                              validate=validate.Length(max=MAX_ENTRIES))
@@ -125,13 +186,13 @@ class ResumeContentSchema(Schema):
     skills = fields.Nested(SkillsSchema)
 
 
-class CreateResumeSchema(Schema):
+class CreateResumeSchema(NormalisedSchema):
     title = fields.Str(required=True, validate=validate.Length(min=1, max=100))
     template_id = fields.Str(required=True, validate=validate.OneOf(ALLOWED_TEMPLATES))
     content_json = fields.Nested(ResumeContentSchema, required=True)
 
 
-class UpdateResumeSchema(Schema):
+class UpdateResumeSchema(NormalisedSchema):
     title = fields.Str(validate=validate.Length(min=1, max=100))
     template_id = fields.Str(validate=validate.OneOf(ALLOWED_TEMPLATES))
     content_json = fields.Nested(ResumeContentSchema)
