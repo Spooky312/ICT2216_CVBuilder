@@ -1,4 +1,4 @@
-name: OWASP Dependency-Check
+﻿name: OWASP Dependency-Check
 
 on:
   push:
@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Create Dependency-Check reports directory
+        run: mkdir -p reports/dependency-check
 
       - name: Run OWASP Dependency-Check
         id: dependency-check
