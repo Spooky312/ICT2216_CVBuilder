@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,7 +10,7 @@ export default function Home() {
         <h1>Build your perfect resume, <span className="accent">ATS-ready</span></h1>
         <p className="hero-sub">
           CVBuilder guides you step-by-step through creating a polished, professionally formatted
-          resume that passes Applicant Tracking Systems and lands on hiring managers' desks.
+          resume that passes Applicant Tracking Systems and lands on hiring managers&apos; desks.
         </p>
         {user ? (
           <Link to="/dashboard" className="btn-primary btn-lg">Go to My Resumes</Link>

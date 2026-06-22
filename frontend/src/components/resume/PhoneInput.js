@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import FieldError, { errorProps } from '../common/FieldError';
 
 const COUNTRY_CODES = [

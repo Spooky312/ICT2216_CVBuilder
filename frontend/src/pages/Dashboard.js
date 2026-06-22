@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   getResumeLimits, listResumes, deleteResume, duplicateResume, exportResume,
@@ -121,7 +121,7 @@ export default function Dashboard() {
 
       {maxResumes !== null && resumes.length >= maxResumes && (
         <p className="text-muted" style={{ marginTop: '1rem' }}>
-          You've reached the limit of {maxResumes} resumes. Delete one to create another.
+          You&apos;ve reached the limit of {maxResumes} resumes. Delete one to create another.
         </p>
       )}
     </div>

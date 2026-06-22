@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * Pagination — Prev / Page-of-N / Next controls.

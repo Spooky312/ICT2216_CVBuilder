@@ -1,4 +1,3 @@
-import React from 'react';
 
 export function errorProps(errors, name, inputId) {
   const invalid = Boolean(errors?.[name]);

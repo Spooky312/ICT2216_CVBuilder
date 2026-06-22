@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * EntryCard — shared card wrapper for wizard list entries (Education, Experience, Projects).

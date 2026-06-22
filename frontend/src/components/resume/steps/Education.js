@@ -1,4 +1,3 @@
-import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
@@ -25,7 +24,7 @@ export default function Education({ data, onChange, errors = {}, onFieldBlur }) 
       </div>
 
       {items.length === 0 && (
-        <p className="text-muted empty-hint">No education entries yet. Click "Add Entry" to begin.</p>
+        <p className="text-muted empty-hint">No education entries yet. Click &quot;Add Entry&quot; to begin.</p>
       )}
 
       {items.map((edu, i) => (

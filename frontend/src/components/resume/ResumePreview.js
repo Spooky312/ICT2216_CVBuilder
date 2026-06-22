@@ -1,4 +1,3 @@
-import React from 'react';
 import Spinner from '../common/Spinner';
 
 export default function ResumePreview({ url, loading, error, stale, paused, onClose }) {

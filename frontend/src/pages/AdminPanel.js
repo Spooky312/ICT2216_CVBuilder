@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import {
   adminListUsers, adminLockUser, adminUnlockUser, adminDeactivateUser, adminDeleteUser,
   adminGetAuditLog, adminListTemplates, adminCreateTemplate, adminUploadTemplate, adminUpdateTemplate,
@@ -164,7 +164,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
               const locked = active && isLocked(u);
               const busy = actionId === u.user_id;
               return (
-                <React.Fragment key={u.user_id}>
+                <Fragment key={u.user_id}>
                   <tr>
                     <td className="user-name">{u.full_name}</td>
                     <td className="user-email">{u.email}</td>
@@ -204,7 +204,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
                       </td>
                     </tr>
                   )}
-                </React.Fragment>
+                </Fragment>
               );
             })}
           </tbody>
@@ -299,7 +299,7 @@ function LogsTab({ logs, filters, onApplyFilters, onRefresh }) {
               const hasMetadata = l.metadata && Object.keys(l.metadata).length > 0;
               const isOpen = expanded === l.log_id;
               return (
-                <React.Fragment key={l.log_id}>
+                <Fragment key={l.log_id}>
                   <tr>
                     <td className="log-time">{fmtDate(l.occurred_at)}</td>
                     <td><span className={`event-badge ${colorClass}`}>{l.event_type}</span></td>
@@ -308,7 +308,7 @@ function LogsTab({ logs, filters, onApplyFilters, onRefresh }) {
                     <td>{hasMetadata && <button className="btn-link-sm" onClick={() => setExpanded(isOpen ? null : l.log_id)}>{isOpen ? 'Hide' : 'Details'}</button>}</td>
                   </tr>
                   {isOpen && <tr className="log-meta-row"><td colSpan={5}><pre className="log-meta">{JSON.stringify(l.metadata, null, 2)}</pre></td></tr>}
-                </React.Fragment>
+                </Fragment>
               );
             })}
           </tbody>
@@ -597,7 +597,6 @@ export default function AdminPanel() {
     }
   }, [logFilters]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadTab(tab); }, [tab, loadTab]);
 
   const applyLogFilters = (nextFilters) => {
@@ -637,4 +636,3 @@ export default function AdminPanel() {
     </div>
   );
 }
-

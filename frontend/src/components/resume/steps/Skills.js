@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import FieldError from '../../common/FieldError';
 
 function TagInput({ id, label, values, onChange, max = 30, error, onBlur }) {

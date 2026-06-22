@@ -1,4 +1,3 @@
-import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
@@ -42,7 +41,7 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
       </div>
 
       {items.length === 0 && (
-        <p className="text-muted empty-hint">No experience entries yet. Click "Add Entry" to begin.</p>
+        <p className="text-muted empty-hint">No experience entries yet. Click &quot;Add Entry&quot; to begin.</p>
       )}
 
       {items.map((exp, i) => (

@@ -1,4 +1,3 @@
-import React from 'react';
 import { RESUME_STEPS } from './resumeSteps';
 
 export default function WizardSteps({ current }) {

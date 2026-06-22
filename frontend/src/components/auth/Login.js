@@ -75,7 +75,7 @@ export default function Login() {
 
       {showCaptcha && (
         <div className="alert alert-warning">
-          Too many failed attempts. Please prove you're human before continuing.
+          Too many failed attempts. Please prove you&apos;re human before continuing.
         </div>
       )}
 

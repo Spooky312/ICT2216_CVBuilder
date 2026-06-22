@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
@@ -64,7 +64,7 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
       </div>
 
       {items.length === 0 && (
-        <p className="text-muted empty-hint">No projects yet. Click "Add Project" to begin.</p>
+        <p className="text-muted empty-hint">No projects yet. Click &quot;Add Project&quot; to begin.</p>
       )}
 
       {items.map((proj, i) => (

@@ -1,4 +1,3 @@
-import React from 'react';
 import FieldError, { errorProps } from '../../common/FieldError';
 import PhoneInput from '../PhoneInput';
 
