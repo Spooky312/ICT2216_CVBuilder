@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import FieldError from '../../common/FieldError';
 
-function TagInput({ label, values, onChange, max = 30 }) {
+function TagInput({ id, label, values, onChange, max = 30, error, onBlur }) {
   const [input, setInput] = useState('');
 
   const add = () => {
@@ -19,13 +20,15 @@ function TagInput({ label, values, onChange, max = 30 }) {
 
   return (
     <div className="form-group">
-      <label>{label}</label>
+      <label htmlFor={id}>{label}</label>
       <div className="tag-input-row">
-        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey}
+        <input id={id} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey}
+          onBlur={onBlur}
           maxLength={50} placeholder="Type and press Enter or comma" />
         <button type="button" className="btn-secondary-sm" onClick={add}
           disabled={values.length >= max}>Add</button>
       </div>
+      {error && <small id={`${id}-error`} className="field-error">{error}</small>}
       <div className="tags">
         {values.map((v) => (
           <span key={v} className="tag">
@@ -38,7 +41,7 @@ function TagInput({ label, values, onChange, max = 30 }) {
   );
 }
 
-export default function Skills({ data, onChange }) {
+export default function Skills({ data, onChange, errors = {}, onFieldBlur }) {
   const skills = data || {};
   const set = (field) => (val) => onChange({ ...skills, [field]: val });
 
@@ -61,19 +64,30 @@ export default function Skills({ data, onChange }) {
   return (
     <div className="step-form">
       <h3>Skills</h3>
-      <TagInput label="Technical Skills" values={skills.technical || []} onChange={set('technical')} max={30} />
-      <TagInput label="Soft Skills" values={skills.soft || []} onChange={set('soft')} max={15} />
-      <TagInput label="Languages" values={skills.languages || []} onChange={set('languages')} max={10} />
+      <TagInput id="skills-technical" label="Technical Skills" values={skills.technical || []}
+        onChange={set('technical')} max={30} error={errors.technical}
+        onBlur={() => onFieldBlur('technical')} />
+      <TagInput id="skills-soft" label="Soft Skills" values={skills.soft || []}
+        onChange={set('soft')} max={15} error={errors.soft}
+        onBlur={() => onFieldBlur('soft')} />
+      <TagInput id="skills-languages" label="Languages" values={skills.languages || []}
+        onChange={set('languages')} max={10} error={errors.languages}
+        onBlur={() => onFieldBlur('languages')} />
 
       <div className="form-group">
-        <label>Certifications <small>(one per line)</small></label>
+        <label htmlFor="skills-certifications">Certifications <small>(one per line)</small></label>
         <textarea
+          id="skills-certifications"
           rows={4}
           value={rawCerts}
           onChange={(e) => setRawCerts(e.target.value)}
-          onBlur={onCertBlur}
+          onBlur={() => {
+            onCertBlur();
+            window.requestAnimationFrame(() => onFieldBlur('certifications'));
+          }}
           placeholder={"AWS Certified Solutions Architect\nGoogle Professional Data Engineer"}
         />
+        <FieldError errors={errors} name="certifications" inputId="skills-certifications" />
         <small>{rawCerts.split('\n').filter(Boolean).length} / 10 certifications</small>
       </div>
     </div>

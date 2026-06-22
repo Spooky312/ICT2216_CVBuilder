@@ -48,9 +48,14 @@ def _safe_render(template_src: str, context: dict[str, Any]) -> str:
     return tmpl.render(**context)
 
 
-def generate_pdf(resume: Resume, timeout_seconds: int = 30) -> bytes:
-    template_src = _load_template(resume.template_id)
-    html_content = _safe_render(template_src, {"resume": resume.content_json})
+def generate_pdf_from_content(
+    template_id: str,
+    content_json: dict[str, Any],
+    timeout_seconds: int = 30,
+) -> bytes:
+    """Render validated resume content without requiring a persisted model."""
+    template_src = _load_template(template_id)
+    html_content = _safe_render(template_src, {"resume": content_json})
     html_obj = HTML(string=html_content)
 
     if _HAS_SIGALRM and timeout_seconds > 0:
@@ -80,3 +85,12 @@ def generate_pdf(resume: Resume, timeout_seconds: int = 30) -> bytes:
         pdf_bytes = html_obj.write_pdf()
 
     return pdf_bytes
+
+
+def generate_pdf(resume: Resume, timeout_seconds: int = 30) -> bytes:
+    """Backwards-compatible saved-resume PDF entry point."""
+    return generate_pdf_from_content(
+        resume.template_id,
+        resume.content_json,
+        timeout_seconds=timeout_seconds,
+    )

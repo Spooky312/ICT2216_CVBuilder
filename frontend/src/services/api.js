@@ -33,6 +33,7 @@ export const createResume = (data) => api.post('/resumes', data);
 export const updateResume = (id, data) => api.put(`/resumes/${id}`, data);
 export const deleteResume = (id) => api.delete(`/resumes/${id}`);
 export const duplicateResume = (id) => api.post(`/resumes/${id}/duplicate`);
+export const previewResume = (data) => api.post('/resumes/preview', data, { responseType: 'blob' });
 export const exportResume = (id) => api.get(`/resumes/${id}/export`, { responseType: 'blob' });
 
 export const adminListUsers = (page = 1, perPage = 100) =>

@@ -142,9 +142,12 @@ the end.
 - [x] `content_json` shape settled (personal_info, education, experience, projects,
       skills — see `tests/test_resumes.py` for the agreed contract)
 - [x] `GET /resumes/templates` — lists active templates (FR-11)
-- [ ] Confirm which validation library is actually used for `content_json` (D1 cites
-      "Marshmallow or Pydantic" as the SR-05 whitelist-schema mechanism) and name it
-      explicitly in code comments and the D2 report
+- [x] Confirmed `content_json` uses Marshmallow whitelist schemas. Input is trimmed,
+      blank optional values are omitted, and partial dates are validated for real
+      month ranges and chronological order (`resume_schema.py`, SR-05/NFR-08)
+- [x] Schema tests cover blank optional values, input normalisation, invalid months,
+      chronological date order, whitespace-only required fields, and secure URL
+      normalisation (bare domains become HTTPS; unsafe schemes/credentials are rejected)
 - [ ] Unit/integration tests: CRUD happy paths, IDOR rejection, schema validation
       (currently blocked by the session/auth bug above)
 - [ ] Comment all of the above with the SR ID it satisfies
@@ -155,6 +158,8 @@ the end.
 - [x] WeasyPrint integration (`app/services/pdf_service.py`)
 - [x] Jinja2 templates with `autoescape=True` via `select_autoescape`
 - [x] Server-side template ID validation against `ALLOWED_TEMPLATES` allow-list
+- [x] Authenticated `POST /resumes/preview` renders validated, unsaved drafts through
+      the same WeasyPrint pipeline as export; responses are uncached and rate-limited
 - [ ] Fix `GET /resumes/{id}/export` rate limit — currently `20 per hour`, should be
       `10 per minute per authenticated user` to match the documented design
 - [ ] Run a basic load/performance check against NFR-01 (PDF within 5s/95th percentile
@@ -194,6 +199,13 @@ full `ResumeWizard` (`PersonalInfo`, `Education`, `Experience`, `Skills`, `Proje
       backend gap above; will need a QR/TOTP-entry step once Phase 3's TOTP work lands
 - [x] Profile view/edit/delete UI
 - [x] Resume creation wizard — all steps present, matches Phase 4's `content_json` shape
+- [x] Resume wizard validates each step before continuing and shows field-level errors;
+      client rules mirror the backend Marshmallow schema while the server remains the
+      validation authority
+- [x] Resume wizard starts with template selection and provides an exact PDF preview:
+      split editor/preview on desktop, full-screen preview drawer on smaller screens, and
+      automatic debounced refresh after valid input settles. Template selection renders
+      fictional showcase content that is isolated from and never copied into the user draft
 - [x] Template selection + export/download UI
 - [x] Admin UI shell (`AdminPanel.js`) — users, templates, audit log
 - [x] CSRF token handling present (`services/api.js`)

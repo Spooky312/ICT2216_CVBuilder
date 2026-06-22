@@ -1,4 +1,9 @@
-﻿from http.cookies import SimpleCookie
+from http.cookies import SimpleCookie
+
+import pytest
+
+from app.models.audit_log import AuditLog
+from app.models.resume import Resume
 
 LOGIN_URL = "/auth/login"
 RESUMES_URL = "/resumes"
@@ -115,3 +120,81 @@ def test_invalid_template(client, db, test_user):
 def test_unauthenticated_access(client, db):
     resp = client.get(RESUMES_URL)
     assert resp.status_code == 401
+
+
+def test_preview_partial_draft_returns_uncached_pdf_without_persisting(
+    client, db, test_user, monkeypatch,
+):
+    headers = _login(client, test_user)
+    monkeypatch.setattr(
+        "app.routes.resumes.generate_pdf_from_content",
+        lambda template_id, content_json, timeout_seconds: b"%PDF-1.7 preview",
+    )
+    resumes_before = Resume.query.count()
+    audits_before = AuditLog.query.count()
+
+    resp = client.post(f"{RESUMES_URL}/preview", headers=headers, json={
+        "template_id": "modern",
+        "content_json": {},
+    })
+
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/pdf"
+    assert resp.data.startswith(b"%PDF")
+    assert resp.headers["Cache-Control"] == "no-store"
+    assert "inline" in resp.headers["Content-Disposition"]
+    assert Resume.query.count() == resumes_before
+    assert AuditLog.query.count() == audits_before
+
+
+@pytest.mark.parametrize("payload", [
+    {"template_id": "unknown", "content_json": {}},
+    {"template_id": "modern", "content_json": {"unexpected": "value"}},
+    {"template_id": "modern", "content_json": {
+        "personal_info": {"phone": "not-a-phone"},
+    }},
+    {"template_id": "modern", "content_json": {
+        "personal_info": {"full_name": "x" * 101},
+    }},
+])
+def test_preview_rejects_invalid_or_unknown_draft_fields(
+    client, db, test_user, payload,
+):
+    headers = _login(client, test_user)
+    resp = client.post(f"{RESUMES_URL}/preview", headers=headers, json=payload)
+    assert resp.status_code == 422
+    assert resp.get_json()["errors"]
+
+
+def test_preview_requires_authentication(client, db):
+    resp = client.post(f"{RESUMES_URL}/preview", json={
+        "template_id": "modern", "content_json": {},
+    })
+    assert resp.status_code == 401
+
+
+def test_security_policy_allows_only_blob_pdf_frames(client):
+    resp = client.get("/health")
+    policy = resp.headers["Content-Security-Policy"]
+    assert "frame-src 'self' blob:;" in policy
+    assert "default-src 'self';" in policy
+
+
+@pytest.mark.parametrize("error, status, message", [
+    (TimeoutError(), 504, "PDF preview timed out. Please try again."),
+    (RuntimeError("render failed"), 500, "PDF preview generation failed."),
+])
+def test_preview_handles_pdf_generation_failures(
+    client, db, test_user, monkeypatch, error, status, message,
+):
+    headers = _login(client, test_user)
+
+    def fail_preview(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr("app.routes.resumes.generate_pdf_from_content", fail_preview)
+    resp = client.post(f"{RESUMES_URL}/preview", headers=headers, json={
+        "template_id": "modern", "content_json": {},
+    })
+    assert resp.status_code == status
+    assert resp.get_json()["message"] == message

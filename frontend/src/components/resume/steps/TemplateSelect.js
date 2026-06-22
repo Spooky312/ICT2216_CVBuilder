@@ -1,4 +1,5 @@
 import React from 'react';
+import FieldError from '../../common/FieldError';
 
 const TEMPLATES = [
   {
@@ -21,18 +22,20 @@ const TEMPLATES = [
   },
 ];
 
-export default function TemplateSelect({ selected, onChange }) {
+export default function TemplateSelect({ selected, onChange, errors = {} }) {
   return (
     <div className="step-form">
       <h3>Choose a Template</h3>
       <p className="text-muted">All templates are ATS-friendly and parse cleanly.</p>
-      <div className="template-grid">
+      <div className="template-grid" role="radiogroup" aria-label="Resume template">
         {TEMPLATES.map((t) => (
           <button
             key={t.id}
             type="button"
             className={`template-card ${selected === t.id ? 'selected' : ''}`}
             onClick={() => onChange(t.id)}
+            role="radio"
+            aria-checked={selected === t.id}
           >
             <div className="template-preview">{t.preview}</div>
             <div className="template-name">{t.name}</div>
@@ -41,6 +44,7 @@ export default function TemplateSelect({ selected, onChange }) {
           </button>
         ))}
       </div>
+      <FieldError errors={errors} name="template_id" inputId="template-choice" />
     </div>
   );
 }

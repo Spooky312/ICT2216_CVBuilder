@@ -77,7 +77,9 @@ primary, lockout is residual/secondary).
 1. **No raw SQL string interpolation, ever.** Use SQLAlchemy parameterised
    queries/ORM only (SR-06).
 2. **All input validated server-side** against a whitelist schema (Marshmallow or
-   Pydantic) before it touches the DB or a template (SR-05).
+   Pydantic) before it touches the DB or a template (SR-05). Resume URL fields accept
+   bare domains, normalise them to HTTPS, allow only HTTP(S), reject credentials and
+   malformed hosts, and must never be fetched server-side.
 3. **All HTML/PDF output is escaped.** Jinja2 `autoescape=True` stays on; never disable
    it; resume content going into PDF templates must be explicitly escaped (SR-05, mitigates
    SSTI — this was a literal misuse case in our D1 diagrams).
@@ -97,8 +99,9 @@ primary, lockout is residual/secondary).
 9. **Session cookies:** HttpOnly, Secure, SameSite=Strict, 30-min idle timeout, 24h
    absolute timeout, server-side blacklist on logout (SR-04, SR-13).
 10. **Rate limit `/auth/login`** to 5 requests / 15 min / IP, HTTP 429 + `Retry-After`
-    (SR-03). **Rate limit `/resumes/{id}/export`** to 10/min/user (mitigates R-06 DoS via
-    PDF generation resource exhaustion).
+    (SR-03). **Rate limit `/resumes/preview` and `/resumes/{id}/export`** to 10/min/user
+    (mitigates R-06 DoS via PDF generation resource exhaustion). Preview drafts are
+    validated, rendered in memory, uncached, and never persisted or audit-logged.
 11. **No PII or secrets in logs.** Structured JSON audit log entries only for auth
     events, authorization failures, account changes, admin actions (SR-10).
 12. **Security headers on every response:** HSTS (max-age=31536000;
