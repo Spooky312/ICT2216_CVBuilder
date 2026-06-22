@@ -1,11 +1,13 @@
-from http.cookies import SimpleCookie
+﻿from http.cookies import SimpleCookie
 
+import pyotp
 import pytest
 
 from app.models.audit_log import AuditLog
 from app.models.resume import Resume
 
 LOGIN_URL = "/auth/login"
+VERIFY_2FA_URL = "/auth/verify-2fa"
 RESUMES_URL = "/resumes"
 
 SAMPLE_CONTENT = {
@@ -32,10 +34,16 @@ def _login(client, user):
         "email": user.email,
         "password": "SecurePass1!",
     })
-    assert resp.status_code == 200
+    assert resp.status_code == 202
+
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": resp.get_json()["challenge_token"],
+        "totp_code": pyotp.TOTP(user.plain_totp_secret).now(),
+    })
+    assert verify_resp.status_code == 200
 
     cookies = SimpleCookie()
-    for header in resp.headers.getlist("Set-Cookie"):
+    for header in verify_resp.headers.getlist("Set-Cookie"):
         cookies.load(header)
 
     if "csrf_access_token" not in cookies:

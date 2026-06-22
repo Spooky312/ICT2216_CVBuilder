@@ -1,5 +1,8 @@
-﻿REGISTER_URL = "/auth/register"
+﻿import pyotp
+
+REGISTER_URL = "/auth/register"
 LOGIN_URL = "/auth/login"
+VERIFY_2FA_URL = "/auth/verify-2fa"
 LOGOUT_URL = "/auth/logout"
 
 VALID_USER = {
@@ -9,10 +12,18 @@ VALID_USER = {
 }
 
 
+def _totp_code(user):
+    return pyotp.TOTP(user.plain_totp_secret).now()
+
+
 def test_register_success(client, db):
     resp = client.post(REGISTER_URL, json=VALID_USER)
     assert resp.status_code == 201
-    assert "Account created" in resp.get_json()["message"]
+    data = resp.get_json()
+    assert "Account created" in data["message"]
+    assert data["requires_2fa"] is True
+    assert data["totp_secret"]
+    assert data["totp_uri"].startswith("otpauth://totp/")
 
 
 def test_register_duplicate_email(client, db):
@@ -31,14 +42,35 @@ def test_register_missing_fields(client, db):
     assert resp.status_code == 422
 
 
-def test_login_user(client, db, test_user):
+def test_login_user_requires_and_verifies_totp(client, db, test_user):
     resp = client.post(LOGIN_URL, json={
         "email": test_user.email,
         "password": "SecurePass1!",
     })
-    assert resp.status_code == 200
+    assert resp.status_code == 202
     data = resp.get_json()
-    assert "user" in data
+    assert data["requires_2fa"] is True
+    assert data["challenge_token"]
+
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": data["challenge_token"],
+        "totp_code": _totp_code(test_user),
+    })
+    assert verify_resp.status_code == 200
+    assert "user" in verify_resp.get_json()
+
+
+def test_login_rejects_bad_totp(client, db, test_user):
+    resp = client.post(LOGIN_URL, json={
+        "email": test_user.email,
+        "password": "SecurePass1!",
+    })
+    assert resp.status_code == 202
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": resp.get_json()["challenge_token"],
+        "totp_code": "000000",
+    })
+    assert verify_resp.status_code == 401
 
 
 def test_login_wrong_password(client, db, test_user):

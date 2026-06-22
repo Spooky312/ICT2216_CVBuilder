@@ -2,6 +2,7 @@
 from app import create_app
 from app.extensions import db as _db
 from app.models.user import User
+from app.utils.totp import encrypt_totp_secret, generate_totp_secret
 
 
 @pytest.fixture(scope="session")
@@ -30,9 +31,15 @@ def db(app):
 
 @pytest.fixture
 def test_user(db):
-    user = User(email="test@example.com", full_name="Test User")
+    secret = generate_totp_secret()
+    user = User(
+        email="test@example.com",
+        full_name="Test User",
+        totp_secret=encrypt_totp_secret(secret),
+        totp_enabled=True,
+    )
     user.set_password("SecurePass1!")
     db.session.add(user)
     db.session.commit()
+    user.plain_totp_secret = secret
     return user
-
