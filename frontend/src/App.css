@@ -54,6 +54,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .btn-primary-sm { background: var(--blue); color: #fff; border: none; border-radius: 6px;
                   padding: 0.35rem 0.85rem; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-primary-sm:hover { background: var(--blue-dark); }
+.btn-primary-sm:visited { color: #fff; }
 .btn-secondary { background: #fff; color: var(--gray-800); border: 1px solid var(--gray-200);
                  border-radius: var(--radius); padding: 0.55rem 1.25rem; font-size: 14px;
                  font-weight: 600; cursor: pointer; }
