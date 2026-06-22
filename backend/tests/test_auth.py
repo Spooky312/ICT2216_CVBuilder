@@ -1,7 +1,4 @@
-import pytest
-
-
-REGISTER_URL = "/auth/register"
+﻿REGISTER_URL = "/auth/register"
 LOGIN_URL = "/auth/login"
 LOGOUT_URL = "/auth/logout"
 
@@ -34,18 +31,9 @@ def test_register_missing_fields(client, db):
     assert resp.status_code == 422
 
 
-def test_login_unverified(client, db):
-    client.post(REGISTER_URL, json=VALID_USER)
+def test_login_user(client, db, test_user):
     resp = client.post(LOGIN_URL, json={
-        "email": VALID_USER["email"],
-        "password": VALID_USER["password"],
-    })
-    assert resp.status_code == 403
-
-
-def test_login_verified_user(client, db, verified_user):
-    resp = client.post(LOGIN_URL, json={
-        "email": verified_user.email,
+        "email": test_user.email,
         "password": "SecurePass1!",
     })
     assert resp.status_code == 200
@@ -53,9 +41,9 @@ def test_login_verified_user(client, db, verified_user):
     assert "user" in data
 
 
-def test_login_wrong_password(client, db, verified_user):
+def test_login_wrong_password(client, db, test_user):
     resp = client.post(LOGIN_URL, json={
-        "email": verified_user.email,
+        "email": test_user.email,
         "password": "WrongPassword1!",
     })
     assert resp.status_code == 401
@@ -84,14 +72,14 @@ def test_password_complexity_no_digit(client, db):
     assert resp.status_code == 422
 
 
-def test_account_lockout(client, db, verified_user):
+def test_account_lockout(client, db, test_user):
     for _ in range(5):
         client.post(LOGIN_URL, json={
-            "email": verified_user.email,
+            "email": test_user.email,
             "password": "WrongPass1!",
         })
     resp = client.post(LOGIN_URL, json={
-        "email": verified_user.email,
+        "email": test_user.email,
         "password": "SecurePass1!",
     })
     assert resp.status_code in (401, 429)

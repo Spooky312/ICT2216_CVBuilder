@@ -1,5 +1,6 @@
+from http.cookies import SimpleCookie
+
 import pytest
-from flask_jwt_extended import create_access_token, decode_token
 
 from app.models.audit_log import AuditLog
 from app.models.resume import Resume
@@ -31,22 +32,20 @@ def _login(client, user):
         "email": user.email,
         "password": "SecurePass1!",
     })
-    return resp
+    assert resp.status_code == 200
+
+    cookies = SimpleCookie()
+    for header in resp.headers.getlist("Set-Cookie"):
+        cookies.load(header)
+
+    if "csrf_access_token" not in cookies:
+        return {}
+    return {"X-CSRF-TOKEN": cookies["csrf_access_token"].value}
 
 
-def _preview_auth(client, app, user):
-    """Authenticate preview tests without relying on the known login fixture bug."""
-    with app.app_context():
-        token = create_access_token(identity=str(user.user_id))
-        csrf = decode_token(token)["csrf"]
-    client.set_cookie("access_token_cookie", token)
-    client.set_cookie("csrf_access_token", csrf)
-    return {"X-CSRF-TOKEN": csrf}
-
-
-def test_create_resume(client, db, verified_user):
-    _login(client, verified_user)
-    resp = client.post(RESUMES_URL, json={
+def test_create_resume(client, db, test_user):
+    headers = _login(client, test_user)
+    resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "My Resume",
         "template_id": "modern",
         "content_json": SAMPLE_CONTENT,
@@ -57,62 +56,62 @@ def test_create_resume(client, db, verified_user):
     assert "resume_id" in data
 
 
-def test_list_resumes(client, db, verified_user):
-    _login(client, verified_user)
-    client.post(RESUMES_URL, json={
+def test_list_resumes(client, db, test_user):
+    headers = _login(client, test_user)
+    client.post(RESUMES_URL, headers=headers, json={
         "title": "Resume 1", "template_id": "classic", "content_json": SAMPLE_CONTENT
     })
-    resp = client.get(RESUMES_URL)
+    resp = client.get(RESUMES_URL, headers=headers)
     assert resp.status_code == 200
     assert len(resp.get_json()) >= 1
 
 
-def test_get_resume(client, db, verified_user):
-    _login(client, verified_user)
-    create_resp = client.post(RESUMES_URL, json={
+def test_get_resume(client, db, test_user):
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "My Resume", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.get(f"{RESUMES_URL}/{resume_id}")
+    resp = client.get(f"{RESUMES_URL}/{resume_id}", headers=headers)
     assert resp.status_code == 200
 
 
-def test_update_resume(client, db, verified_user):
-    _login(client, verified_user)
-    create_resp = client.post(RESUMES_URL, json={
+def test_update_resume(client, db, test_user):
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Old Title", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.put(f"{RESUMES_URL}/{resume_id}", json={"title": "New Title"})
+    resp = client.put(f"{RESUMES_URL}/{resume_id}", headers=headers, json={"title": "New Title"})
     assert resp.status_code == 200
     assert resp.get_json()["title"] == "New Title"
 
 
-def test_delete_resume(client, db, verified_user):
-    _login(client, verified_user)
-    create_resp = client.post(RESUMES_URL, json={
+def test_delete_resume(client, db, test_user):
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Delete Me", "template_id": "minimal", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.delete(f"{RESUMES_URL}/{resume_id}")
+    resp = client.delete(f"{RESUMES_URL}/{resume_id}", headers=headers)
     assert resp.status_code == 200
-    assert client.get(f"{RESUMES_URL}/{resume_id}").status_code == 404
+    assert client.get(f"{RESUMES_URL}/{resume_id}", headers=headers).status_code == 404
 
 
-def test_duplicate_resume(client, db, verified_user):
-    _login(client, verified_user)
-    create_resp = client.post(RESUMES_URL, json={
+def test_duplicate_resume(client, db, test_user):
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Original", "template_id": "modern", "content_json": SAMPLE_CONTENT
     })
     resume_id = create_resp.get_json()["resume_id"]
-    resp = client.post(f"{RESUMES_URL}/{resume_id}/duplicate")
+    resp = client.post(f"{RESUMES_URL}/{resume_id}/duplicate", headers=headers)
     assert resp.status_code == 201
     assert "(copy)" in resp.get_json()["title"]
 
 
-def test_invalid_template(client, db, verified_user):
-    _login(client, verified_user)
-    resp = client.post(RESUMES_URL, json={
+def test_invalid_template(client, db, test_user):
+    headers = _login(client, test_user)
+    resp = client.post(RESUMES_URL, headers=headers, json={
         "title": "Bad Template", "template_id": "hacker", "content_json": SAMPLE_CONTENT
     })
     assert resp.status_code == 422
@@ -124,9 +123,9 @@ def test_unauthenticated_access(client, db):
 
 
 def test_preview_partial_draft_returns_uncached_pdf_without_persisting(
-    client, app, db, verified_user, monkeypatch,
+    client, db, test_user, monkeypatch,
 ):
-    headers = _preview_auth(client, app, verified_user)
+    headers = _login(client, test_user)
     monkeypatch.setattr(
         "app.routes.resumes.generate_pdf_from_content",
         lambda template_id, content_json, timeout_seconds: b"%PDF-1.7 preview",
@@ -159,9 +158,9 @@ def test_preview_partial_draft_returns_uncached_pdf_without_persisting(
     }},
 ])
 def test_preview_rejects_invalid_or_unknown_draft_fields(
-    client, app, db, verified_user, payload,
+    client, db, test_user, payload,
 ):
-    headers = _preview_auth(client, app, verified_user)
+    headers = _login(client, test_user)
     resp = client.post(f"{RESUMES_URL}/preview", headers=headers, json=payload)
     assert resp.status_code == 422
     assert resp.get_json()["errors"]
@@ -186,9 +185,9 @@ def test_security_policy_allows_only_blob_pdf_frames(client):
     (RuntimeError("render failed"), 500, "PDF preview generation failed."),
 ])
 def test_preview_handles_pdf_generation_failures(
-    client, app, db, verified_user, monkeypatch, error, status, message,
+    client, db, test_user, monkeypatch, error, status, message,
 ):
-    headers = _preview_auth(client, app, verified_user)
+    headers = _login(client, test_user)
 
     def fail_preview(*args, **kwargs):
         raise error

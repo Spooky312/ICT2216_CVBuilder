@@ -1,9 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import io
 import uuid
 from flask import Blueprint, request, jsonify, send_file, current_app, Response
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from app.extensions import db, limiter
 from app.models.user import User
 from app.models.resume import Resume
@@ -12,7 +12,7 @@ from app.schemas.resume_schema import (
 )
 from app.services.pdf_service import generate_pdf, generate_pdf_from_content
 from app.utils.audit import log_event
-from app.utils.helpers import get_current_user_or_404, load_or_422
+from app.utils.helpers import current_user_id, get_current_user_or_404, load_or_422
 
 resumes_bp = Blueprint("resumes", __name__, url_prefix="/resumes")
 
@@ -44,7 +44,7 @@ def _check_resume_limit(user_id: uuid.UUID) -> tuple[None, None] | tuple[None, t
 
 @resumes_bp.route("/preview", methods=["POST"])
 @jwt_required()
-@limiter.limit("10 per minute", key_func=lambda: str(get_jwt_identity()))
+@limiter.limit("10 per minute", key_func=lambda: str(current_user_id()))
 def preview_resume() -> tuple[Response, int] | Response:
     """Render an unsaved, validated draft without persisting personal data."""
     data, err = load_or_422(preview_schema, request.get_json(force=True) or {})
@@ -74,6 +74,13 @@ def preview_resume() -> tuple[Response, int] | Response:
     return response
 
 
+def _locked_current_user() -> User | None:
+    uid = current_user_id()
+    if uid is None:
+        return None
+    return User.query.filter_by(user_id=uid).with_for_update().first()
+
+
 @resumes_bp.route("", methods=["GET"])
 @jwt_required()
 def list_resumes() -> tuple[Response, int]:
@@ -94,10 +101,9 @@ def create_resume() -> tuple[Response, int]:
     if err:
         return err
 
-    # Lock the user row for the remainder of this transaction so that concurrent
-    # create/duplicate requests cannot both pass the MAX_RESUMES check and then
-    # both insert — closing the TOCTOU race.
-    user = User.query.filter_by(user_id=get_jwt_identity()).with_for_update().first()
+    # Lock the user row for the remainder of this transaction so concurrent
+    # create/duplicate requests cannot both pass the MAX_RESUMES check.
+    user = _locked_current_user()
     if not user:
         return jsonify({"message": "User not found."}), 404
 
@@ -181,9 +187,8 @@ def delete_resume(resume_id: str) -> tuple[Response, int]:
 @resumes_bp.route("/<resume_id>/duplicate", methods=["POST"])
 @jwt_required()
 def duplicate_resume(resume_id: str) -> tuple[Response, int]:
-    # Lock the user row first to serialise concurrent duplicate requests
-    # and prevent the TOCTOU race that could push count past MAX_RESUMES.
-    user = User.query.filter_by(user_id=get_jwt_identity()).with_for_update().first()
+    # Lock the user row first to serialize concurrent duplicate requests.
+    user = _locked_current_user()
     if not user:
         return jsonify({"message": "User not found."}), 404
 

@@ -1,0 +1,56 @@
+﻿name: OWASP Dependency-Check
+
+on:
+  push:
+    branches: [main, master, dev]
+  pull_request:
+    branches: [main, master, dev]
+  workflow_dispatch:
+
+jobs:
+  dependency-check:
+    name: Scan backend and frontend dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Dependency-Check reports directory
+        run: mkdir -p reports/dependency-check
+
+      - name: Run OWASP Dependency-Check
+        id: dependency-check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: ICT2216 CVBuilder
+          path: .
+          format: ALL
+          out: "reports/dependency-check"
+          args: >
+            --enableExperimental
+            --enableRetired
+            --failOnCVSS 7
+            --exclude "**/.git/**"
+            --exclude "**/node_modules/**"
+            --exclude "**/.venv/**"
+            --exclude "**/venv/**"
+            --exclude "**/dist/**"
+            --exclude "**/build/**"
+            --exclude "**/__pycache__/**"
+
+      - name: Upload Dependency-Check reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-dependency-check-reports
+          path: "reports/dependency-check"
+
+      - name: Upload Dependency-Check SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('reports/dependency-check/dependency-check-report.sarif') != ''
+        with:
+          sarif_file: reports/dependency-check/dependency-check-report.sarif

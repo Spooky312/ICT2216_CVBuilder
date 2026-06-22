@@ -1,5 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -12,14 +13,31 @@ from app.extensions import db
 from app.models.user import User
 
 
+def parse_uuid(value: Any) -> uuid.UUID | None:
+    """Return a UUID for string/UUID values, or None for invalid input."""
+    if isinstance(value, uuid.UUID):
+        return value
+    try:
+        return uuid.UUID(str(value))
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def current_user_id() -> uuid.UUID | None:
+    """Return the current JWT identity as a UUID."""
+    return parse_uuid(get_jwt_identity())
+
+
 def get_current_user() -> User | None:
     """Return the User row for the JWT identity in the current request.
 
-    Returns ``None`` when the identity is present in the token but the
-    corresponding row no longer exists in the database (e.g. the account
-    was deleted after the token was issued).
+    JWT subjects are stored as strings, while the database column is a UUID.
+    Convert before querying so SQLAlchemy's UUID bind processor receives the
+    type it expects.
     """
-    uid = get_jwt_identity()
+    uid = current_user_id()
+    if uid is None:
+        return None
     return db.session.get(User, uid)
 
 

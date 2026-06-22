@@ -349,8 +349,6 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .badge-inactive  { background: var(--gray-100); color: var(--gray-400); }
 .badge-active    { background: var(--green-light); color: var(--green); }
 .badge-locked    { background: var(--red-light); color: var(--red); border: 1px solid #fecaca; }
-.badge-verified  { background: var(--green-light); color: var(--green); }
-.badge-unverified{ background: var(--yellow-light); color: #92400e; border: 1px solid var(--yellow-border); }
 
 /* Inline lock form */
 .lock-form-row td { background: #eff6ff !important; }
