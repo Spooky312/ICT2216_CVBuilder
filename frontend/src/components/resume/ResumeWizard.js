@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import WizardSteps from './WizardSteps';
 import ResumePreview from './ResumePreview';
@@ -9,6 +9,7 @@ import Projects from './steps/Projects';
 import Skills from './steps/Skills';
 import TemplateSelect from './steps/TemplateSelect';
 import { RESUME_STEPS, stepIndex } from './resumeSteps';
+import { TEMPLATE_DEMO_CONTENT } from './templateDemoContent';
 import {
   createResume, getResume, previewResume, updateResume,
 } from '../../services/api';
@@ -67,16 +68,21 @@ export default function ResumeWizard() {
   const [error, setError] = useState('');
   const [stepErrors, setStepErrors] = useState({});
   const [titleError, setTitleError] = useState('');
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(
+    () => window.matchMedia('(min-width: 1051px)').matches,
+  );
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [previewStale, setPreviewStale] = useState(false);
+  const [previewPaused, setPreviewPaused] = useState(false);
 
   const previewUrlRef = useRef('');
   const previewButtonRef = useRef(null);
   const draftVersionRef = useRef(0);
   const previewRequestRef = useRef(0);
+  const renderedVersionRef = useRef(-1);
+  const renderingVersionRef = useRef(-1);
 
   const currentStep = RESUME_STEPS[step];
 
@@ -140,22 +146,22 @@ export default function ResumeWizard() {
 
   const handleNext = () => {
     if (!validateCurrentStep()) return;
+    if (currentStep.id === 'template') discardPreviewDocument();
     setError('');
     setStep((current) => current + 1);
   };
 
-  const handlePreview = async () => {
-    if (!validateCurrentStep()) return;
-
+  const renderPreview = useCallback(async () => {
     const requestedVersion = draftVersionRef.current;
     const requestId = previewRequestRef.current + 1;
     previewRequestRef.current = requestId;
+    renderingVersionRef.current = requestedVersion;
     setError('');
-    setPreviewOpen(true);
     setPreviewLoading(true);
     setPreviewError('');
     try {
-      const response = await previewResume({ template_id: templateId, content_json: content });
+      const previewContent = currentStep.id === 'template' ? TEMPLATE_DEMO_CONTENT : content;
+      const response = await previewResume({ template_id: templateId, content_json: previewContent });
       const nextUrl = URL.createObjectURL(response.data);
       if (requestId !== previewRequestRef.current) {
         URL.revokeObjectURL(nextUrl);
@@ -164,24 +170,59 @@ export default function ResumeWizard() {
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = nextUrl;
       setPreviewUrl(nextUrl);
+      renderedVersionRef.current = requestedVersion;
       setPreviewStale(draftVersionRef.current !== requestedVersion);
     } catch (previewFailure) {
       const message = await previewErrorMessage(previewFailure);
       if (requestId === previewRequestRef.current) setPreviewError(message);
     } finally {
-      if (requestId === previewRequestRef.current) setPreviewLoading(false);
+      if (requestId === previewRequestRef.current) {
+        renderingVersionRef.current = -1;
+        setPreviewLoading(false);
+      }
     }
+  }, [content, currentStep.id, templateId]);
+
+  useEffect(() => {
+    if (!previewOpen || loading) return undefined;
+    const currentErrors = validateResumeStep(currentStep.id, content, templateId);
+    if (Object.keys(currentErrors).length) {
+      setPreviewPaused(true);
+      return undefined;
+    }
+
+    setPreviewPaused(false);
+    const timer = window.setTimeout(() => {
+      const version = draftVersionRef.current;
+      if (renderedVersionRef.current === version || renderingVersionRef.current === version) return;
+      renderPreview();
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [content, currentStep.id, loading, previewOpen, renderPreview, templateId]);
+
+  const handlePreview = () => {
+    if (!validateCurrentStep()) return;
+    setPreviewPaused(false);
+    setPreviewOpen(true);
+    renderPreview();
   };
 
-  const handleClosePreview = () => {
+  const discardPreviewDocument = () => {
     previewRequestRef.current += 1;
+    renderingVersionRef.current = -1;
+    renderedVersionRef.current = -1;
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     previewUrlRef.current = '';
     setPreviewUrl('');
-    setPreviewOpen(false);
     setPreviewLoading(false);
     setPreviewError('');
     setPreviewStale(false);
+    setPreviewPaused(false);
+  };
+
+  const handleClosePreview = () => {
+    discardPreviewDocument();
+    setPreviewOpen(false);
     window.requestAnimationFrame(() => previewButtonRef.current?.focus());
   };
 
@@ -258,6 +299,7 @@ export default function ResumeWizard() {
 
           <div className="wizard-nav">
             <button className="btn-secondary" onClick={() => {
+              if (currentStep.id === 'personal') discardPreviewDocument();
               setStepErrors({});
               setError('');
               setStep((current) => current - 1);
@@ -268,10 +310,10 @@ export default function ResumeWizard() {
             <span className="step-counter">{step + 1} / {TOTAL_STEPS}</span>
 
             <div className="wizard-nav-actions">
-              <button ref={previewButtonRef} type="button" className="btn-preview"
-                onClick={handlePreview} disabled={previewLoading}>
-                {previewLoading ? <><Spinner size={16} /> Rendering…</> : (previewUrl ? 'Update preview' : 'Preview')}
-              </button>
+              {!previewOpen && (
+                <button ref={previewButtonRef} type="button" className="btn-preview"
+                  onClick={handlePreview}>Preview</button>
+              )}
               {step < TOTAL_STEPS - 1 ? (
                 <button className="btn-primary" onClick={handleNext}>Next</button>
               ) : (
@@ -284,7 +326,8 @@ export default function ResumeWizard() {
         </section>
 
         {previewOpen && <ResumePreview url={previewUrl} loading={previewLoading}
-          error={previewError} stale={previewStale} onClose={handleClosePreview} />}
+          error={previewError} stale={previewStale} paused={previewPaused}
+          onClose={handleClosePreview} />}
       </div>
     </div>
   );

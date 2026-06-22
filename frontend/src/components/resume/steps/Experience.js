@@ -1,6 +1,7 @@
 import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
+import MonthYearPicker from '../MonthYearPicker';
 
 const BLANK = { company: '', position: '', location: '', start_date: '', end_date: '', description: '', achievements: [] };
 
@@ -64,29 +65,20 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
               <FieldError errors={errors} name={`${i}.company`} inputId={`experience-${i}-company`} />
             </div>
           </div>
+          <div className="form-group">
+            <label>Location</label>
+            <input value={exp.location} onChange={(e) => update(i, 'location', e.target.value)} maxLength={100} />
+          </div>
           <div className="form-row">
-            <div className="form-group">
-              <label>Location</label>
-              <input value={exp.location} onChange={(e) => update(i, 'location', e.target.value)} maxLength={100} />
-            </div>
-            <div className="form-group form-row" style={{ gap: '0.5rem' }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label htmlFor={`experience-${i}-start`}>Start Date</label>
-                <input id={`experience-${i}-start`} value={exp.start_date}
-                  onChange={(e) => update(i, 'start_date', e.target.value)}
-                  onBlur={() => onFieldBlur(`${i}.start_date`)} placeholder="2022-01" maxLength={7}
-                  {...errorProps(errors, `${i}.start_date`, `experience-${i}-start`)} />
-                <FieldError errors={errors} name={`${i}.start_date`} inputId={`experience-${i}-start`} />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label htmlFor={`experience-${i}-end`}>End Date</label>
-                <input id={`experience-${i}-end`} value={exp.end_date}
-                  onChange={(e) => update(i, 'end_date', e.target.value)}
-                  onBlur={() => onFieldBlur(`${i}.end_date`)} placeholder="Present" maxLength={7}
-                  {...errorProps(errors, `${i}.end_date`, `experience-${i}-end`)} />
-                <FieldError errors={errors} name={`${i}.end_date`} inputId={`experience-${i}-end`} />
-              </div>
-            </div>
+            <MonthYearPicker id={`experience-${i}-start`} label="Start Date" value={exp.start_date}
+              onChange={(value) => update(i, 'start_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
+              errors={errors} errorName={`${i}.start_date`} />
+            <MonthYearPicker id={`experience-${i}-end`} label="End Date" value={exp.end_date}
+              onChange={(value) => update(i, 'end_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
+              allowPresent presentLabel="Currently working here"
+              errors={errors} errorName={`${i}.end_date`} />
           </div>
           <div className="form-group">
             <label>Description</label>

@@ -1,16 +1,19 @@
 import React from 'react';
 import Spinner from '../common/Spinner';
 
-export default function ResumePreview({ url, loading, error, stale, onClose }) {
+export default function ResumePreview({ url, loading, error, stale, paused, onClose }) {
   return (
     <aside className="resume-preview" aria-label="Resume preview">
       <div className="resume-preview-header">
         <div>
           <div className="resume-preview-title-row">
             <h2>Resume preview</h2>
-            {stale && <span className="preview-stale-badge">Changes not previewed</span>}
+            {paused && <span className="preview-stale-badge">Waiting for valid fields</span>}
+            {!paused && stale && <span className="preview-stale-badge">Updating automatically</span>}
           </div>
-          <p>{stale ? 'Select Update preview to render your latest changes.' : 'This matches the exported PDF.'}</p>
+          <p>{paused
+            ? 'Complete the required fields to refresh the preview.'
+            : (stale ? 'Your latest changes will appear shortly.' : 'This matches the exported PDF.')}</p>
         </div>
         <button type="button" className="preview-close" onClick={onClose}
           aria-label="Close resume preview">
@@ -32,8 +35,10 @@ export default function ResumePreview({ url, loading, error, stale, onClose }) {
           <iframe src={url} title="Generated resume PDF preview" />
         ) : !loading && (
           <div className="preview-empty">
-            <strong>No preview generated</strong>
-            <span>Select Preview to render the current draft.</span>
+            <strong>No preview yet</strong>
+            <span>{paused
+              ? 'Complete the required fields to generate it.'
+              : 'It will render automatically when your changes settle.'}</span>
           </div>
         )}
       </div>

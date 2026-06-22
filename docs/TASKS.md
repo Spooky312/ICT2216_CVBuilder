@@ -202,8 +202,10 @@ full `ResumeWizard` (`PersonalInfo`, `Education`, `Experience`, `Skills`, `Proje
 - [x] Resume wizard validates each step before continuing and shows field-level errors;
       client rules mirror the backend Marshmallow schema while the server remains the
       validation authority
-- [x] Resume wizard starts with template selection and provides an on-demand exact PDF
-      preview: split editor/preview on desktop, full-screen preview drawer on smaller screens
+- [x] Resume wizard starts with template selection and provides an exact PDF preview:
+      split editor/preview on desktop, full-screen preview drawer on smaller screens, and
+      automatic debounced refresh after valid input settles. Template selection renders
+      fictional showcase content that is isolated from and never copied into the user draft
 - [x] Template selection + export/download UI
 - [x] Admin UI shell (`AdminPanel.js`) — users, templates, audit log
 - [x] CSRF token handling present (`services/api.js`)

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
+import MonthYearPicker from '../MonthYearPicker';
 
 const BLANK = { name: '', description: '', technologies: [], url: '', start_date: '', end_date: '' };
 
@@ -93,22 +94,15 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
             </div>
           </div>
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor={`project-${i}-start`}>Start Date</label>
-              <input id={`project-${i}-start`} value={proj.start_date}
-                onChange={(e) => update(i, 'start_date', e.target.value)}
-                onBlur={() => onFieldBlur(`${i}.start_date`)} placeholder="2023" maxLength={7}
-                {...errorProps(errors, `${i}.start_date`, `project-${i}-start`)} />
-              <FieldError errors={errors} name={`${i}.start_date`} inputId={`project-${i}-start`} />
-            </div>
-            <div className="form-group">
-              <label htmlFor={`project-${i}-end`}>End Date</label>
-              <input id={`project-${i}-end`} value={proj.end_date}
-                onChange={(e) => update(i, 'end_date', e.target.value)}
-                onBlur={() => onFieldBlur(`${i}.end_date`)} placeholder="2024 or Present" maxLength={7}
-                {...errorProps(errors, `${i}.end_date`, `project-${i}-end`)} />
-              <FieldError errors={errors} name={`${i}.end_date`} inputId={`project-${i}-end`} />
-            </div>
+            <MonthYearPicker id={`project-${i}-start`} label="Start Date" value={proj.start_date}
+              onChange={(value) => update(i, 'start_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
+              errors={errors} errorName={`${i}.start_date`} />
+            <MonthYearPicker id={`project-${i}-end`} label="End Date" value={proj.end_date}
+              onChange={(value) => update(i, 'end_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
+              allowPresent presentLabel="Currently working on this project"
+              errors={errors} errorName={`${i}.end_date`} />
           </div>
 
           <div className="form-group">
