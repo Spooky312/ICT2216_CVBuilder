@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
@@ -20,6 +20,7 @@ api.interceptors.request.use((config) => {
 
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
+export const verifyTwoFactor = (data) => api.post('/auth/verify-2fa', data);
 export const logout = () => api.post('/auth/logout');
 
 export const getProfile = () => api.get('/profile');
