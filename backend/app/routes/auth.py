@@ -1,10 +1,10 @@
 ﻿from __future__ import annotations
 
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, current_app
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, set_access_cookies,
-    set_refresh_cookies, unset_jwt_cookies,
+    set_refresh_cookies, unset_jwt_cookies, get_jwt, decode_token,
 )
 from app.extensions import db, limiter
 from app.models.user import User
@@ -12,6 +12,7 @@ from app.schemas.user_schema import RegisterSchema, LoginSchema, VerifyTwoFactor
 from app.utils.audit import log_event
 from app.utils.helpers import current_user_id, load_or_422
 from app.utils.security import record_failed_login, reset_failed_logins
+from app.utils.token_blocklist import revoke_jwt_payloads
 from app.utils.totp import (
     decrypt_totp_secret, encrypt_totp_secret, generate_totp_secret,
     provisioning_uri, verify_totp_code,
@@ -187,9 +188,26 @@ def refresh() -> tuple[Response, int]:
 @jwt_required()
 def logout() -> tuple[Response, int]:
     user_id = current_user_id()
-    log_event("logout", user_id=user_id)
+    access_payload = get_jwt()
+    refresh_payload = _decode_refresh_cookie()
+    revoked_count = revoke_jwt_payloads(access_payload, refresh_payload)
+    log_event("logout", user_id=user_id, metadata={"revoked_tokens": revoked_count})
     resp = jsonify({"message": "Logged out."})
     unset_jwt_cookies(resp)
     return resp, 200
+
+
+def _decode_refresh_cookie() -> dict[str, object] | None:
+    cookie_name = current_app.config.get("JWT_REFRESH_COOKIE_NAME", "refresh_token_cookie")
+    refresh_token = request.cookies.get(cookie_name)
+    if not refresh_token:
+        return None
+    try:
+        return decode_token(refresh_token)
+    except Exception:
+        current_app.logger.warning("Failed to decode refresh token during logout", exc_info=True)
+        return None
+
+
 
 

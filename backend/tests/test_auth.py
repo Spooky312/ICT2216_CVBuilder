@@ -1,9 +1,14 @@
-﻿import pyotp
+﻿from http.cookies import SimpleCookie
+
+import pyotp
+
+from app.models.revoked_token import RevokedToken
 
 REGISTER_URL = "/auth/register"
 LOGIN_URL = "/auth/login"
 VERIFY_2FA_URL = "/auth/verify-2fa"
 LOGOUT_URL = "/auth/logout"
+PROFILE_URL = "/profile"
 
 VALID_USER = {
     "email": "alice@example.com",
@@ -14,6 +19,27 @@ VALID_USER = {
 
 def _totp_code(user):
     return pyotp.TOTP(user.plain_totp_secret).now()
+
+
+def _cookie_values(resp):
+    cookies = SimpleCookie()
+    for header in resp.headers.getlist("Set-Cookie"):
+        cookies.load(header)
+    return {key: morsel.value for key, morsel in cookies.items()}
+
+
+def _login_with_2fa(client, user):
+    resp = client.post(LOGIN_URL, json={
+        "email": user.email,
+        "password": "SecurePass1!",
+    })
+    assert resp.status_code == 202
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": resp.get_json()["challenge_token"],
+        "totp_code": _totp_code(user),
+    })
+    assert verify_resp.status_code == 200
+    return verify_resp, _cookie_values(verify_resp)
 
 
 def test_register_success(client, db):
@@ -89,6 +115,25 @@ def test_login_nonexistent_user(client, db):
     assert resp.status_code == 401
 
 
+def test_logout_revokes_access_and_refresh_tokens(client, db, test_user):
+    _verify_resp, cookies = _login_with_2fa(client, test_user)
+    assert "access_token_cookie" in cookies
+    assert "refresh_token_cookie" in cookies
+
+    logout_resp = client.post(LOGOUT_URL, headers={
+        "X-CSRF-TOKEN": cookies.get("csrf_access_token", ""),
+    })
+    assert logout_resp.status_code == 200
+    assert RevokedToken.query.count() == 2
+
+    replay_client = client.application.test_client()
+    replay_client.set_cookie("access_token_cookie", cookies["access_token_cookie"])
+    replay_client.set_cookie("csrf_access_token", cookies.get("csrf_access_token", ""))
+    replay_resp = replay_client.get(PROFILE_URL)
+    assert replay_resp.status_code == 401
+    assert replay_resp.get_json()["message"] == "Token has been revoked."
+
+
 def test_logout_requires_auth(client, db):
     resp = client.post(LOGOUT_URL)
     assert resp.status_code == 401
@@ -115,3 +160,4 @@ def test_account_lockout(client, db, test_user):
         "password": "SecurePass1!",
     })
     assert resp.status_code in (401, 429)
+
