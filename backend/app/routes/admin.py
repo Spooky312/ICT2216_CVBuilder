@@ -33,14 +33,22 @@ def admin_required(fn: _F) -> _F:
     @jwt_required()
     def wrapper(*args: Any, **kwargs: Any) -> tuple[Response, int]:
         uid = current_user_id()
-        # Live DB lookup so a demoted admin loses access immediately, not at token expiry.
         user = db.session.get(User, uid) if uid else None
-        if not user or user.role != "admin":
+        if not user or not user.is_active or user.role != "admin":
             log_event("admin_access_denied", user_id=uid,
                       metadata={"endpoint": request.path})
             return jsonify({"message": "Admin access required."}), 403
         return fn(*args, **kwargs)
     return wrapper  # type: ignore[return-value]
+
+
+def _get_target_user(user_id: str) -> User | None:
+    target_user_id = parse_uuid(user_id)
+    return db.session.get(User, target_user_id) if target_user_id else None
+
+
+def _is_self(user: User) -> bool:
+    return user.user_id == current_user_id()
 
 
 @admin_bp.route("/users", methods=["GET"])
@@ -59,10 +67,13 @@ def list_users() -> tuple[Response, int]:
 @admin_bp.route("/users/<user_id>/lock", methods=["POST"])
 @admin_required
 def lock_user(user_id: str) -> tuple[Response, int]:
-    target_user_id = parse_uuid(user_id)
-    user = db.session.get(User, target_user_id) if target_user_id else None
+    user = _get_target_user(user_id)
     if not user:
         return jsonify({"message": "User not found."}), 404
+    if _is_self(user):
+        return jsonify({"message": "You cannot lock your own admin account."}), 400
+    if not user.is_active:
+        return jsonify({"message": "Cannot lock a deactivated account."}), 400
 
     minutes = request.get_json(force=True, silent=True) or {}
     duration = int(minutes.get("minutes", 60))
@@ -80,10 +91,11 @@ def lock_user(user_id: str) -> tuple[Response, int]:
 @admin_bp.route("/users/<user_id>/unlock", methods=["POST"])
 @admin_required
 def unlock_user(user_id: str) -> tuple[Response, int]:
-    target_user_id = parse_uuid(user_id)
-    user = db.session.get(User, target_user_id) if target_user_id else None
+    user = _get_target_user(user_id)
     if not user:
         return jsonify({"message": "User not found."}), 404
+    if not user.is_active:
+        return jsonify({"message": "Cannot unlock a deactivated account."}), 400
 
     user.locked_until = None
     user.failed_logins = 0
@@ -91,6 +103,41 @@ def unlock_user(user_id: str) -> tuple[Response, int]:
     log_event("admin_user_unlocked", user_id=current_user_id(),
               metadata={"target_user": user_id})
     return jsonify({"message": "User unlocked."}), 200
+
+
+@admin_bp.route("/users/<user_id>/deactivate", methods=["POST"])
+@admin_required
+def deactivate_user(user_id: str) -> tuple[Response, int]:
+    user = _get_target_user(user_id)
+    if not user:
+        return jsonify({"message": "User not found."}), 404
+    if _is_self(user):
+        return jsonify({"message": "You cannot deactivate your own admin account."}), 400
+
+    user.is_active = False
+    user.locked_until = None
+    user.failed_logins = 0
+    db.session.commit()
+    log_event("admin_user_deactivated", user_id=current_user_id(),
+              metadata={"target_user": user_id})
+    return jsonify({"message": "User deactivated.", "user": user.to_dict()}), 200
+
+
+@admin_bp.route("/users/<user_id>", methods=["DELETE"])
+@admin_required
+def delete_user(user_id: str) -> tuple[Response, int]:
+    user = _get_target_user(user_id)
+    if not user:
+        return jsonify({"message": "User not found."}), 404
+    if _is_self(user):
+        return jsonify({"message": "You cannot delete your own admin account."}), 400
+
+    target_email = user.email
+    db.session.delete(user)
+    db.session.commit()
+    log_event("admin_user_deleted", user_id=current_user_id(),
+              metadata={"target_user": user_id, "target_email": target_email})
+    return jsonify({"message": "User permanently deleted."}), 200
 
 
 @admin_bp.route("/audit-log", methods=["GET"])
@@ -108,9 +155,6 @@ def get_audit_log() -> tuple[Response, int]:
     return paginate_response("logs", paginated, page, lambda e: e.to_dict())
 
 
-# In-process mutable store for admin-editable template state.
-# Seeded from TEMPLATE_METADATA (the single source of truth for ids/names/descriptions);
-# ALLOWED_TEMPLATES guards that no unknown id slips in.
 TEMPLATES_DB: list[TemplateEntry] = [
     {"id": tid, "name": meta["name"], "active": True, "description": meta["description"]}
     for tid, meta in TEMPLATE_METADATA.items()
@@ -140,4 +184,3 @@ def update_template(template_id: str) -> tuple[Response, int]:
                       metadata={"template_id": template_id})
             return jsonify(tmpl), 200
     return jsonify({"message": "Template not found."}), 404
-

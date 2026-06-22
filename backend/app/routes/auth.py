@@ -118,6 +118,10 @@ def login() -> tuple[Response, int]:
             "show_captcha": user.failed_logins >= 3,
         }), 401
 
+    if not user.is_active:
+        log_event("login_blocked_deactivated", user_id=user.user_id)
+        return jsonify({"message": "Account is deactivated."}), 403
+
     secret, setup_payload = _ensure_totp_setup(user)
     challenge_token = create_two_factor_challenge(user.user_id)
     log_event("login_totp_required", user_id=user.user_id)
@@ -146,6 +150,9 @@ def verify_2fa() -> tuple[Response, int]:
     user = db.session.get(User, uid)
     if not user:
         return jsonify({"message": "User not found."}), 404
+    if not user.is_active:
+        log_event("login_blocked_deactivated", user_id=user.user_id)
+        return jsonify({"message": "Account is deactivated."}), 403
     if user.is_locked():
         log_event("login_blocked_locked", user_id=user.user_id)
         return jsonify({"message": "Account temporarily locked. Try again later."}), 429
@@ -207,6 +214,7 @@ def _decode_refresh_cookie() -> dict[str, object] | None:
     except Exception:
         current_app.logger.warning("Failed to decode refresh token during logout", exc_info=True)
         return None
+
 
 
 

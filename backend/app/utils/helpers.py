@@ -29,33 +29,27 @@ def current_user_id() -> uuid.UUID | None:
 
 
 def get_current_user() -> User | None:
-    """Return the User row for the JWT identity in the current request.
-
-    JWT subjects are stored as strings, while the database column is a UUID.
-    Convert before querying so SQLAlchemy's UUID bind processor receives the
-    type it expects.
-    """
+    """Return the active User row for the JWT identity in the current request."""
     uid = current_user_id()
     if uid is None:
         return None
-    return db.session.get(User, uid)
+    user = db.session.get(User, uid)
+    if not user or not user.is_active:
+        return None
+    return user
 
 
 def get_current_user_or_404() -> tuple[User, None] | tuple[None, tuple[Response, int]]:
-    """Return ``(user, None)`` or ``(None, 404_response)``.
+    """Return ``(user, None)`` or ``(None, error_response)``."""
+    uid = current_user_id()
+    if uid is None:
+        return None, (jsonify({"message": "User not found."}), 404)
 
-    On success  → ``(user, None)``
-    On failure  → ``(None, flask_response_404)``
-
-    Typical usage::
-
-        user, err = get_current_user_or_404()
-        if err:
-            return err
-    """
-    user = get_current_user()
+    user = db.session.get(User, uid)
     if not user:
         return None, (jsonify({"message": "User not found."}), 404)
+    if not user.is_active:
+        return None, (jsonify({"message": "Account is deactivated."}), 403)
     return user, None
 
 
@@ -65,10 +59,7 @@ def paginate_response(
     page: int,
     serializer: Callable[[Any], dict[str, Any]],
 ) -> tuple[Response, int]:
-    """Build the standard paginated JSON envelope used by list endpoints.
-
-    ``serializer`` converts one ORM object to a dict (e.g. ``lambda u: u.to_dict()``).
-    """
+    """Build the standard paginated JSON envelope used by list endpoints."""
     return jsonify({
         items_key: [serializer(item) for item in paginated.items],
         "total": paginated.total,
@@ -81,20 +72,7 @@ def load_or_422(
     schema: Schema,
     data: dict[str, Any],
 ) -> tuple[dict[str, Any], None] | tuple[None, tuple[Response, int]]:
-    """Deserialise *data* through *schema*, returning a 2-tuple.
-
-    On success  → ``(loaded_data, None)``
-    On failure  → ``(None, flask_response_422)``
-
-    Typical usage::
-
-        data, err = load_or_422(my_schema, request.get_json(force=True) or {})
-        if err:
-            return err
-
-    This avoids repeating the identical ``try/except ValidationError`` block
-    in every route that validates request bodies.
-    """
+    """Deserialise *data* through *schema*, returning a 2-tuple."""
     try:
         return schema.load(data), None
     except ValidationError as exc:

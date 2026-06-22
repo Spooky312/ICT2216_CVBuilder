@@ -14,6 +14,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="user")
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
     totp_secret = db.Column(db.String(512), nullable=True)
     totp_enabled = db.Column(db.Boolean, nullable=False, default=True)
     failed_logins = db.Column(db.Integer, nullable=False, default=0)
@@ -49,13 +50,16 @@ class User(db.Model):
             locked_until = locked_until.replace(tzinfo=timezone.utc)
         return datetime.now(timezone.utc) < locked_until
 
-    def to_dict(self) -> dict[str, str | bool]:
+    def to_dict(self) -> dict[str, str | bool | int | None]:
         return {
             "user_id": str(self.user_id),
             "email": self.email,
             "full_name": self.full_name,
             "role": self.role,
+            "is_active": self.is_active,
             "totp_enabled": self.totp_enabled,
+            "failed_logins": self.failed_logins,
+            "locked_until": self.locked_until.isoformat() if self.locked_until else None,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
