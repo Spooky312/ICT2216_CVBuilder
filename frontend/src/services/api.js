@@ -43,8 +43,14 @@ export const adminLockUser = (id, minutes) => api.post(`/admin/users/${id}/lock`
 export const adminUnlockUser = (id) => api.post(`/admin/users/${id}/unlock`);
 export const adminDeactivateUser = (id) => api.post(`/admin/users/${id}/deactivate`);
 export const adminDeleteUser = (id) => api.delete(`/admin/users/${id}`);
-export const adminGetAuditLog = (page = 1, perPage = 100) =>
-  api.get(`/admin/audit-log?page=${page}&per_page=${perPage}`);
+export const adminGetAuditLog = (page = 1, perPage = 100, filters = {}) => {
+  const params = { page, per_page: perPage, ...filters };
+  const query = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&');
+  return api.get(`/admin/audit-log?${query}`);
+};
 export const adminListTemplates = () => api.get('/admin/templates');
 export const adminCreateTemplate = (data) => api.post('/admin/templates', data);
 export const adminUpdateTemplate = (id, data) => api.put(`/admin/templates/${id}`, data);

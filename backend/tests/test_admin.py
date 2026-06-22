@@ -1,8 +1,10 @@
-﻿from http.cookies import SimpleCookie
+﻿from datetime import datetime, timedelta, timezone
+from http.cookies import SimpleCookie
 
 import pyotp
 
 from app.extensions import db
+from app.models.audit_log import AuditLog
 from app.models.resume import Resume
 from app.models.user import User
 from app.utils.totp import encrypt_totp_secret, generate_totp_secret
@@ -11,6 +13,7 @@ LOGIN_URL = "/auth/login"
 VERIFY_2FA_URL = "/auth/verify-2fa"
 PROFILE_URL = "/profile"
 ADMIN_USERS_URL = "/admin/users"
+ADMIN_AUDIT_URL = "/admin/audit-log"
 ADMIN_TEMPLATES_URL = "/admin/templates"
 RESUMES_URL = "/resumes"
 
@@ -131,6 +134,71 @@ def test_admin_can_permanently_delete_user_and_resumes(client, db):
     assert db.session.get(User, target_id) is None
     assert db.session.get(Resume, resume_id) is None
 
+
+def test_admin_can_filter_audit_log_by_event_user_and_date_range(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    target = _create_user("target@example.com")
+    now = datetime.now(timezone.utc)
+    older = now - timedelta(days=3)
+    matching_log = AuditLog(
+        user_id=target.user_id,
+        event_type="profile_updated",
+        ip_address="127.0.0.1",
+        extra={"field": "full_name"},
+        occurred_at=now,
+    )
+    other_log = AuditLog(
+        user_id=admin.user_id,
+        event_type="profile_updated",
+        ip_address="127.0.0.2",
+        occurred_at=now,
+    )
+    old_log = AuditLog(
+        user_id=target.user_id,
+        event_type="profile_updated",
+        ip_address="127.0.0.3",
+        occurred_at=older,
+    )
+    db.session.add_all([matching_log, other_log, old_log])
+    db.session.commit()
+    headers = _login(client, admin)
+
+    resp = client.get(
+        ADMIN_AUDIT_URL,
+        headers=headers,
+        query_string={
+            "event_type": "profile_updated",
+            "user_id": str(target.user_id),
+            "date_from": now.date().isoformat(),
+            "date_to": now.date().isoformat(),
+        },
+    )
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["total"] == 1
+    assert data["logs"][0]["log_id"] == matching_log.log_id
+    assert data["logs"][0]["metadata"] == {"field": "full_name"}
+
+
+def test_admin_audit_log_filter_validation(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.get(
+        ADMIN_AUDIT_URL,
+        headers=headers,
+        query_string={
+            "user_id": "not-a-uuid",
+            "date_from": "not-a-date",
+            "date_to": "2025-01-01",
+        },
+    )
+
+    assert resp.status_code == 422
+    errors = resp.get_json()["errors"]
+    assert "user_id" in errors
+    assert "date_from" in errors
 
 def test_admin_can_create_and_persist_template(client, db):
     admin = _create_user("admin@example.com", role="admin")

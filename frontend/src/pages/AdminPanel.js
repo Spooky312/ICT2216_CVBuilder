@@ -241,28 +241,54 @@ const EVENT_COLORS = {
   pdf_generation_failed: 'event-danger',
 };
 
-function LogsTab({ logs, onRefresh }) {
-  const [filter, setFilter] = useState('');
+function LogsTab({ logs, filters, onApplyFilters, onRefresh }) {
+  const [draftFilters, setDraftFilters] = useState(filters);
   const [expanded, setExpanded] = useState(null);
   const [page, setPage] = useState(1);
   const PER_PAGE = 20;
 
-  const eventTypes = [...new Set(logs.map((l) => l.event_type))].sort();
-  const filtered = filter ? logs.filter((l) => l.event_type === filter) : logs;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const visible = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const updateFilter = (field, value) => {
+    setDraftFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const applyFilters = () => {
+    setExpanded(null);
+    setPage(1);
+    onApplyFilters(draftFilters);
+  };
+
+  const clearFilters = () => {
+    const emptyFilters = { event_type: '', user_id: '', date_from: '', date_to: '' };
+    setDraftFilters(emptyFilters);
+    setExpanded(null);
+    setPage(1);
+    onApplyFilters(emptyFilters);
+  };
+
+  const hasAppliedFilters = Object.values(filters).some(Boolean);
+  const hasDraftFilters = Object.values(draftFilters).some(Boolean);
+  const totalPages = Math.max(1, Math.ceil(logs.length / PER_PAGE));
+  const visible = logs.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <div className="admin-tab-content">
       <div className="admin-toolbar">
-        <select className="admin-filter-select" value={filter}
-          onChange={(e) => { setFilter(e.target.value); setPage(1); }}>
-          <option value="">All event types</option>
-          {eventTypes.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <input className="admin-search" placeholder="Event type" value={draftFilters.event_type}
+          onChange={(e) => updateFilter('event_type', e.target.value)} />
+        <input className="admin-search" placeholder="User ID" value={draftFilters.user_id}
+          onChange={(e) => updateFilter('user_id', e.target.value)} />
+        <input className="admin-filter-select" type="date" value={draftFilters.date_from}
+          onChange={(e) => updateFilter('date_from', e.target.value)} aria-label="Date from" />
+        <input className="admin-filter-select" type="date" value={draftFilters.date_to}
+          onChange={(e) => updateFilter('date_to', e.target.value)} aria-label="Date to" />
+        <button className="btn-primary-sm" onClick={applyFilters}>Apply</button>
+        <button className="btn-secondary-sm" onClick={clearFilters} disabled={!hasAppliedFilters && !hasDraftFilters}>Clear</button>
         <button className="btn-secondary-sm" onClick={onRefresh}>Refresh</button>
       </div>
-      <p className="admin-count">{filtered.length} event{filtered.length !== 1 ? 's' : ''}</p>
+      <p className="admin-count">
+        {logs.length} event{logs.length !== 1 ? 's' : ''}{hasAppliedFilters && ' matching filters'}
+      </p>
       <div className="admin-table-wrap">
         <table className="admin-table">
           <thead><tr><th>Time</th><th>Event</th><th>User ID</th><th>IP Address</th><th>Detail</th></tr></thead>
@@ -292,7 +318,6 @@ function LogsTab({ logs, onRefresh }) {
     </div>
   );
 }
-
 function TemplatesTab({ templates, setTemplates }) {
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -462,10 +487,11 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [logFilters, setLogFilters] = useState({ event_type: '', user_id: '', date_from: '', date_to: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const loadTab = useCallback(async (t) => {
+  const loadTab = useCallback(async (t, filtersOverride = null) => {
     setError('');
     setLoading(true);
     try {
@@ -473,7 +499,7 @@ export default function AdminPanel() {
         const r = await adminListUsers(1, 100);
         setUsers(r.data.users || []);
       } else if (t === 'logs') {
-        const r = await adminGetAuditLog(1, 100);
+        const r = await adminGetAuditLog(1, 100, filtersOverride || logFilters);
         setLogs(r.data.logs || []);
       } else if (t === 'templates') {
         const r = await adminListTemplates();
@@ -484,9 +510,14 @@ export default function AdminPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [logFilters]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadTab(tab); }, [tab, loadTab]);
+
+  const applyLogFilters = (nextFilters) => {
+    setLogFilters(nextFilters);
+  };
 
   const tabLabel = (t) => {
     if (t === 'users' && users.length) return `Users (${users.length})`;
@@ -514,7 +545,7 @@ export default function AdminPanel() {
       ) : (
         <>
           {tab === 'users' && <UsersTab users={users} setUsers={setUsers} onRefresh={() => loadTab('users')} />}
-          {tab === 'logs' && <LogsTab logs={logs} onRefresh={() => loadTab('logs')} />}
+          {tab === 'logs' && <LogsTab logs={logs} filters={logFilters} onApplyFilters={applyLogFilters} onRefresh={() => loadTab('logs')} />}
           {tab === 'templates' && <TemplatesTab templates={templates} setTemplates={setTemplates} />}
         </>
       )}

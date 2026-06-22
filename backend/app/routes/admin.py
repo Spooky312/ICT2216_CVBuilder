@@ -47,6 +47,29 @@ def _is_self(user: User) -> bool:
     return user.user_id == current_user_id()
 
 
+def _parse_audit_datetime(value: str | None, field: str, *, end_of_day: bool = False) -> tuple[datetime | None, list[str] | None]:
+    if not value:
+        return None, None
+
+    raw_value = value.strip()
+    if not raw_value:
+        return None, None
+
+    try:
+        if len(raw_value) == 10 and raw_value[4] == "-" and raw_value[7] == "-":
+            parsed = datetime.fromisoformat(raw_value)
+            if end_of_day:
+                parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None, [f"{field} must be an ISO 8601 date or datetime."]
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc), None
+
+
 @admin_bp.route("/users", methods=["GET"])
 @admin_required
 def list_users() -> tuple[Response, int]:
@@ -141,11 +164,39 @@ def delete_user(user_id: str) -> tuple[Response, int]:
 def get_audit_log() -> tuple[Response, int]:
     page = request.args.get("page", 1, type=int)
     per_page = min(request.args.get("per_page", 50, type=int), 200)
-    event_type = request.args.get("event_type")
+    event_type = (request.args.get("event_type") or "").strip()
+    user_id = (request.args.get("user_id") or "").strip()
+    date_from_raw = request.args.get("date_from")
+    date_to_raw = request.args.get("date_to")
+
+    errors: dict[str, list[str]] = {}
+    target_user_id = None
+    if user_id:
+        target_user_id = parse_uuid(user_id)
+        if not target_user_id:
+            errors["user_id"] = ["Invalid user ID."]
+
+    date_from, date_from_error = _parse_audit_datetime(date_from_raw, "date_from")
+    if date_from_error:
+        errors["date_from"] = date_from_error
+    date_to, date_to_error = _parse_audit_datetime(date_to_raw, "date_to", end_of_day=True)
+    if date_to_error:
+        errors["date_to"] = date_to_error
+    if date_from and date_to and date_from > date_to:
+        errors["date_to"] = ["Date to must be on or after date from."]
+
+    if errors:
+        return jsonify({"errors": errors}), 422
 
     query = AuditLog.query.order_by(AuditLog.occurred_at.desc())
     if event_type:
         query = query.filter_by(event_type=event_type)
+    if target_user_id:
+        query = query.filter_by(user_id=target_user_id)
+    if date_from:
+        query = query.filter(AuditLog.occurred_at >= date_from)
+    if date_to:
+        query = query.filter(AuditLog.occurred_at <= date_to)
 
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
     return paginate_response("logs", paginated, page, lambda e: e.to_dict())
