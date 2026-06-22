@@ -14,6 +14,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="user")
+    totp_secret = db.Column(db.String(512), nullable=True)
+    totp_enabled = db.Column(db.Boolean, nullable=False, default=True)
     failed_logins = db.Column(db.Integer, nullable=False, default=0)
     locked_until = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False,
@@ -53,7 +55,7 @@ class User(db.Model):
             "email": self.email,
             "full_name": self.full_name,
             "role": self.role,
+            "totp_enabled": self.totp_enabled,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
-
