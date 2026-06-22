@@ -9,7 +9,7 @@ PASSWORD_COMMON = {
     "login", "hello", "master", "dragon", "passw0rd", "shadow",
 }
 
-# Shared validators for the full_name field — used by RegisterSchema and
+# Shared validators for the full_name field - used by RegisterSchema and
 # UpdateProfileSchema so the rules cannot silently diverge between the two.
 _FULL_NAME_VALIDATORS = [
     validate.Length(min=2, max=100),
@@ -18,12 +18,7 @@ _FULL_NAME_VALIDATORS = [
 
 
 def _password_confirm_field(*, required: bool = True) -> fields.Str:
-    """Return a load-only password confirmation field (login / account-delete).
-
-    Both LoginSchema and DeleteAccountSchema need the same 'current password'
-    field — a required, load-only Str with a basic length guard.  Extracting
-    it here keeps the two schemas in sync automatically.
-    """
+    """Return a load-only password confirmation field (login / account-delete)."""
     return fields.Str(required=required, load_only=True, validate=validate.Length(min=1, max=256))
 
 
@@ -55,6 +50,14 @@ class RegisterSchema(Schema):
 class LoginSchema(Schema):
     email = fields.Email(required=True)
     password = _password_confirm_field()
+
+
+class VerifyTwoFactorSchema(Schema):
+    challenge_token = fields.Str(required=True, validate=validate.Length(min=20, max=1000))
+    totp_code = fields.Str(required=True, validate=validate.Regexp(
+        r'^\s*\d[\d\s]{4,10}\d\s*$',
+        error="Enter the 6-digit authenticator code.",
+    ))
 
 
 class UpdateProfileSchema(Schema):
