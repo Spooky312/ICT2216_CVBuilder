@@ -27,7 +27,7 @@ def _init_extensions(app: Flask) -> None:
     limiter.init_app(app)
     migrate.init_app(app, db)
 
-    from .models import User, Resume, AuditLog, RevokedToken  # noqa: ensure models are registered
+    from .models import User, Resume, AuditLog, RevokedToken, ResumeTemplate  # noqa: ensure models are registered
 
     @jwt.token_in_blocklist_loader
     def token_in_blocklist(
@@ -106,3 +106,4 @@ def _set_security_headers(app: Flask) -> None:
                 "max-age=31536000; includeSubDomains"
             )
         return response
+

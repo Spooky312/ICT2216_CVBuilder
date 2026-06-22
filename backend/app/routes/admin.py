@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from typing import Any, TypedDict, TypeVar
+from typing import Any, TypeVar
 
 from flask import Blueprint, request, jsonify, Response
 from flask_jwt_extended import jwt_required
@@ -11,17 +11,13 @@ from flask_jwt_extended import jwt_required
 from app.extensions import db
 from app.models.user import User
 from app.models.audit_log import AuditLog
-from app.schemas.resume_schema import ALLOWED_TEMPLATES, TEMPLATE_METADATA
+from app.models.resume_template import ResumeTemplate
+from app.services.template_service import (
+    BUILTIN_TEMPLATE_FILES, create_template, ensure_default_templates,
+    list_templates, normalise_template_id, valid_template_id,
+)
 from app.utils.audit import log_event
 from app.utils.helpers import current_user_id, paginate_response, parse_uuid
-
-
-class TemplateEntry(TypedDict):
-    id: str
-    name: str
-    active: bool
-    description: str
-
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -155,32 +151,86 @@ def get_audit_log() -> tuple[Response, int]:
     return paginate_response("logs", paginated, page, lambda e: e.to_dict())
 
 
-TEMPLATES_DB: list[TemplateEntry] = [
-    {"id": tid, "name": meta["name"], "active": True, "description": meta["description"]}
-    for tid, meta in TEMPLATE_METADATA.items()
-    if tid in ALLOWED_TEMPLATES
-]
-
-
 @admin_bp.route("/templates", methods=["GET"])
 @admin_required
-def list_templates() -> tuple[Response, int]:
-    return jsonify(TEMPLATES_DB), 200
+def list_admin_templates() -> tuple[Response, int]:
+    templates = [template.to_dict() for template in list_templates(active_only=False)]
+    return jsonify(templates), 200
+
+
+@admin_bp.route("/templates", methods=["POST"])
+@admin_required
+def add_template() -> tuple[Response, int]:
+    ensure_default_templates()
+    data = request.get_json(force=True, silent=True) or {}
+    template_id = normalise_template_id(str(data.get("template_id", "")))
+    name = str(data.get("name", "")).strip()
+    description = str(data.get("description", "")).strip()
+    source_template_id = normalise_template_id(str(data.get("source_template_id", "")))
+    active = bool(data.get("active", True))
+
+    errors: dict[str, list[str]] = {}
+    if not valid_template_id(template_id):
+        errors["template_id"] = ["Use 2-50 lowercase letters, numbers, hyphens, or underscores."]
+    elif db.session.get(ResumeTemplate, template_id):
+        errors["template_id"] = ["Template ID already exists."]
+    if not 1 <= len(name) <= 80:
+        errors["name"] = ["Name must be 1-80 characters."]
+    if len(description) > 250:
+        errors["description"] = ["Description must be 250 characters or fewer."]
+    if source_template_id not in BUILTIN_TEMPLATE_FILES:
+        errors["source_template_id"] = ["Choose modern, classic, or minimal."]
+    if errors:
+        return jsonify({"errors": errors}), 422
+
+    template = create_template(
+        template_id=template_id,
+        name=name,
+        description=description,
+        source_template_id=source_template_id,
+        active=active,
+    )
+    log_event("admin_template_created", user_id=current_user_id(),
+              metadata={"template_id": template_id, "source_template_id": source_template_id})
+    return jsonify(template.to_dict()), 201
 
 
 @admin_bp.route("/templates/<template_id>", methods=["PUT"])
 @admin_required
 def update_template(template_id: str) -> tuple[Response, int]:
+    ensure_default_templates()
+    template = db.session.get(ResumeTemplate, normalise_template_id(template_id))
+    if not template:
+        return jsonify({"message": "Template not found."}), 404
+
     data = request.get_json(force=True, silent=True) or {}
-    for tmpl in TEMPLATES_DB:
-        if tmpl["id"] == template_id:
-            if "name" in data:
-                tmpl["name"] = str(data["name"])[:50]
-            if "description" in data:
-                tmpl["description"] = str(data["description"])[:200]
-            if "active" in data:
-                tmpl["active"] = bool(data["active"])
-            log_event("admin_template_updated", user_id=current_user_id(),
-                      metadata={"template_id": template_id})
-            return jsonify(tmpl), 200
-    return jsonify({"message": "Template not found."}), 404
+    errors: dict[str, list[str]] = {}
+
+    if "name" in data:
+        name = str(data["name"]).strip()
+        if not 1 <= len(name) <= 80:
+            errors["name"] = ["Name must be 1-80 characters."]
+        else:
+            template.name = name
+    if "description" in data:
+        description = str(data["description"]).strip()
+        if len(description) > 250:
+            errors["description"] = ["Description must be 250 characters or fewer."]
+        else:
+            template.description = description
+    if "source_template_id" in data:
+        source_template_id = normalise_template_id(str(data["source_template_id"]))
+        if source_template_id not in BUILTIN_TEMPLATE_FILES:
+            errors["source_template_id"] = ["Choose modern, classic, or minimal."]
+        else:
+            template.source_template_id = source_template_id
+    if "active" in data:
+        template.active = bool(data["active"])
+
+    if errors:
+        return jsonify({"errors": errors}), 422
+
+    db.session.commit()
+    log_event("admin_template_updated", user_id=current_user_id(),
+              metadata={"template_id": template.template_id})
+    return jsonify(template.to_dict()), 200

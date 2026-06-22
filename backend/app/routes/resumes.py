@@ -8,9 +8,10 @@ from app.extensions import db, limiter
 from app.models.user import User
 from app.models.resume import Resume
 from app.schemas.resume_schema import (
-    TEMPLATE_METADATA, CreateResumeSchema, PreviewResumeSchema, UpdateResumeSchema,
+    CreateResumeSchema, PreviewResumeSchema, UpdateResumeSchema,
 )
 from app.services.pdf_service import generate_pdf, generate_pdf_from_content
+from app.services.template_service import get_active_template, list_templates
 from app.utils.audit import log_event
 from app.utils.helpers import current_user_id, get_current_user_or_404, load_or_422
 
@@ -34,12 +35,17 @@ def _get_owned_resume(resume_id: str, user_id: uuid.UUID) -> Resume | None:
 
 
 def _check_resume_limit(user_id: uuid.UUID) -> tuple[None, None] | tuple[None, tuple[Response, int]]:
-    """Return ``(None, None)`` if under limit, or ``(None, 409_response)`` if at/over limit."""
     max_r = _max_resumes()
     count = Resume.query.filter_by(user_id=user_id).count()
     if count >= max_r:
         return None, (jsonify({"message": f"Maximum {max_r} resumes allowed."}), 409)
     return None, None
+
+
+def _template_or_422(template_id: str) -> tuple[None, None] | tuple[None, tuple[Response, int]]:
+    if get_active_template(template_id):
+        return None, None
+    return None, (jsonify({"errors": {"template_id": ["Unknown or inactive template."]}}), 422)
 
 
 @resumes_bp.route("/preview", methods=["POST"])
@@ -50,6 +56,9 @@ def preview_resume() -> tuple[Response, int] | Response:
     data, err = load_or_422(preview_schema, request.get_json(force=True) or {})
     if err:
         return err
+    _, template_err = _template_or_422(data["template_id"])
+    if template_err:
+        return template_err
 
     try:
         pdf_bytes = generate_pdf_from_content(
@@ -78,7 +87,7 @@ def _locked_current_user() -> User | None:
     uid = current_user_id()
     if uid is None:
         return None
-    return User.query.filter_by(user_id=uid).with_for_update().first()
+    return User.query.filter_by(user_id=uid, is_active=True).with_for_update().first()
 
 
 @resumes_bp.route("", methods=["GET"])
@@ -100,9 +109,10 @@ def create_resume() -> tuple[Response, int]:
     data, err = load_or_422(create_schema, request.get_json(force=True) or {})
     if err:
         return err
+    _, template_err = _template_or_422(data["template_id"])
+    if template_err:
+        return template_err
 
-    # Lock the user row for the remainder of this transaction so concurrent
-    # create/duplicate requests cannot both pass the MAX_RESUMES check.
     user = _locked_current_user()
     if not user:
         return jsonify({"message": "User not found."}), 404
@@ -152,6 +162,10 @@ def update_resume(resume_id: str) -> tuple[Response, int]:
     data, err = load_or_422(update_schema, request.get_json(force=True) or {})
     if err:
         return err
+    if "template_id" in data:
+        _, template_err = _template_or_422(data["template_id"])
+        if template_err:
+            return template_err
 
     if "title" in data:
         resume.title = data["title"]
@@ -187,7 +201,6 @@ def delete_resume(resume_id: str) -> tuple[Response, int]:
 @resumes_bp.route("/<resume_id>/duplicate", methods=["POST"])
 @jwt_required()
 def duplicate_resume(resume_id: str) -> tuple[Response, int]:
-    # Lock the user row first to serialize concurrent duplicate requests.
     user = _locked_current_user()
     if not user:
         return jsonify({"message": "User not found."}), 404
@@ -261,9 +274,6 @@ def get_limits() -> tuple[Response, int]:
 
 @resumes_bp.route("/templates", methods=["GET"])
 @jwt_required()
-def list_templates() -> tuple[Response, int]:
-    templates = [
-        {"id": tid, "name": meta["name"], "description": meta["description"]}
-        for tid, meta in TEMPLATE_METADATA.items()
-    ]
+def list_resume_templates() -> tuple[Response, int]:
+    templates = [template.to_dict() for template in list_templates(active_only=True)]
     return jsonify(templates), 200

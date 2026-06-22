@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   adminListUsers, adminLockUser, adminUnlockUser, adminDeactivateUser, adminDeleteUser,
-  adminGetAuditLog, adminListTemplates, adminUpdateTemplate,
+  adminGetAuditLog, adminListTemplates, adminCreateTemplate, adminUpdateTemplate,
 } from '../services/api';
 import Spinner from '../components/common/Spinner';
 import Pagination from '../components/common/Pagination';
@@ -294,20 +294,52 @@ function LogsTab({ logs, onRefresh }) {
 }
 
 function TemplatesTab({ templates, setTemplates }) {
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    template_id: '', name: '', description: '', source_template_id: 'modern', active: true,
+  });
   const [editing, setEditing] = useState(null);
-  const [editDesc, setEditDesc] = useState('');
+  const [editForm, setEditForm] = useState({ name: '', description: '', source_template_id: 'modern' });
   const [saving, setSaving] = useState(null);
+  const sourceOptions = ['modern', 'classic', 'minimal'];
 
-  const startEdit = (t) => { setEditing(t.id); setEditDesc(t.description); };
+  const updateCreate = (field, value) => setCreateForm((prev) => ({ ...prev, [field]: value }));
+  const updateEdit = (field, value) => setEditForm((prev) => ({ ...prev, [field]: value }));
 
-  const saveDesc = async (t) => {
+  const startEdit = (t) => {
+    setEditing(t.id);
+    setEditForm({
+      name: t.name,
+      description: t.description || '',
+      source_template_id: t.source_template_id || t.id,
+    });
+  };
+
+  const createTemplate = async (e) => {
+    e.preventDefault();
+    setSaving('create');
+    try {
+      const res = await adminCreateTemplate(createForm);
+      setTemplates((prev) => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
+      setCreateForm({ template_id: '', name: '', description: '', source_template_id: 'modern', active: true });
+      setCreating(false);
+    } catch (err) {
+      const data = err.response?.data;
+      alert(data?.message || JSON.stringify(data?.errors || 'Failed to create template.'));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const saveTemplate = async (t) => {
     setSaving(t.id);
     try {
-      await adminUpdateTemplate(t.id, { description: editDesc });
-      setTemplates((prev) => prev.map((x) => x.id === t.id ? { ...x, description: editDesc } : x));
+      const res = await adminUpdateTemplate(t.id, editForm);
+      setTemplates((prev) => prev.map((x) => x.id === t.id ? res.data : x));
       setEditing(null);
-    } catch {
-      alert('Failed to save description.');
+    } catch (err) {
+      const data = err.response?.data;
+      alert(data?.message || JSON.stringify(data?.errors || 'Failed to save template.'));
     } finally {
       setSaving(null);
     }
@@ -316,11 +348,10 @@ function TemplatesTab({ templates, setTemplates }) {
   const toggleActive = async (t) => {
     setSaving(t.id);
     try {
-      const next = !t.active;
-      await adminUpdateTemplate(t.id, { active: next });
-      setTemplates((prev) => prev.map((x) => x.id === t.id ? { ...x, active: next } : x));
-    } catch {
-      alert('Failed to update template.');
+      const res = await adminUpdateTemplate(t.id, { active: !t.active });
+      setTemplates((prev) => prev.map((x) => x.id === t.id ? res.data : x));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update template.');
     } finally {
       setSaving(null);
     }
@@ -328,14 +359,56 @@ function TemplatesTab({ templates, setTemplates }) {
 
   return (
     <div className="admin-tab-content">
-      <p className="admin-count">{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+      <div className="admin-toolbar">
+        <p className="admin-count" style={{ margin: 0 }}>{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+        <button className="btn-primary-sm" onClick={() => setCreating((value) => !value)}>
+          {creating ? 'Cancel' : 'Add Template'}
+        </button>
+      </div>
+
+      {creating && (
+        <form className="entry-card template-edit-form" onSubmit={createTemplate}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="new-template-id">Template ID</label>
+              <input id="new-template-id" value={createForm.template_id}
+                onChange={(e) => updateCreate('template_id', e.target.value)} placeholder="professional" required />
+            </div>
+            <div className="form-group">
+              <label htmlFor="new-template-name">Name</label>
+              <input id="new-template-name" value={createForm.name}
+                onChange={(e) => updateCreate('name', e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label htmlFor="new-template-source">Render Layout</label>
+              <select id="new-template-source" value={createForm.source_template_id}
+                onChange={(e) => updateCreate('source_template_id', e.target.value)}>
+                {sourceOptions.map((id) => <option key={id} value={id}>{id}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label htmlFor="new-template-description">Description</label>
+            <textarea id="new-template-description" rows={2} value={createForm.description} maxLength={250}
+              onChange={(e) => updateCreate('description', e.target.value)} />
+          </div>
+          <button className="btn-primary-sm" type="submit" disabled={saving === 'create'}>
+            {saving === 'create' ? <Spinner size={14} /> : 'Create Template'}
+          </button>
+        </form>
+      )}
+
       <div className="template-admin-list">
         {templates.map((t) => (
           <div key={t.id} className={`entry-card ${!t.active ? 'entry-card-inactive' : ''}`}>
             <div className="entry-card-header">
-              <div><strong>{t.name}</strong><code className="tmpl-id"> ({t.id})</code></div>
+              <div>
+                <strong>{t.name}</strong>
+                <code className="tmpl-id"> ({t.id})</code>
+              </div>
               <div className="action-cell">
                 <span className={`badge ${t.active ? 'badge-active' : 'badge-inactive'}`}>{t.active ? 'Active' : 'Inactive'}</span>
+                <button className="btn-link-sm" onClick={() => startEdit(t)}>Edit</button>
                 <button className={t.active ? 'btn-danger-sm' : 'btn-secondary-sm'} onClick={() => toggleActive(t)} disabled={saving === t.id}>
                   {saving === t.id ? <Spinner size={14} /> : t.active ? 'Deactivate' : 'Activate'}
                 </button>
@@ -343,17 +416,33 @@ function TemplatesTab({ templates, setTemplates }) {
             </div>
             {editing === t.id ? (
               <div className="template-edit-form">
-                <textarea rows={2} value={editDesc} maxLength={200} onChange={(e) => setEditDesc(e.target.value)} />
-                <small>{editDesc.length} / 200</small>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Name</label>
+                    <input value={editForm.name} onChange={(e) => updateEdit('name', e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label>Render Layout</label>
+                    <select value={editForm.source_template_id} onChange={(e) => updateEdit('source_template_id', e.target.value)}>
+                      {sourceOptions.map((id) => <option key={id} value={id}>{id}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label>Description</label>
+                <textarea rows={2} value={editForm.description} maxLength={250}
+                  onChange={(e) => updateEdit('description', e.target.value)} />
+                <small>{editForm.description.length} / 250</small>
                 <div className="action-cell" style={{ marginTop: '0.5rem' }}>
-                  <button className="btn-primary-sm" onClick={() => saveDesc(t)} disabled={saving === t.id}>{saving === t.id ? <Spinner size={14} /> : 'Save'}</button>
+                  <button className="btn-primary-sm" onClick={() => saveTemplate(t)} disabled={saving === t.id}>
+                    {saving === t.id ? <Spinner size={14} /> : 'Save'}
+                  </button>
                   <button className="btn-secondary-sm" onClick={() => setEditing(null)}>Cancel</button>
                 </div>
               </div>
             ) : (
               <div className="template-desc-row">
                 <p className="text-muted" style={{ margin: 0 }}>{t.description}</p>
-                <button className="btn-link-sm" onClick={() => startEdit(t)}>Edit</button>
+                <small className="text-muted">Render layout: {t.source_template_id}</small>
               </div>
             )}
           </div>
@@ -362,7 +451,6 @@ function TemplatesTab({ templates, setTemplates }) {
     </div>
   );
 }
-
 const TABS = [
   { key: 'users', label: 'Users' },
   { key: 'logs', label: 'Audit Log' },
@@ -433,3 +521,4 @@ export default function AdminPanel() {
     </div>
   );
 }
+

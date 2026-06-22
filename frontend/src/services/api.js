@@ -46,7 +46,9 @@ export const adminDeleteUser = (id) => api.delete(`/admin/users/${id}`);
 export const adminGetAuditLog = (page = 1, perPage = 100) =>
   api.get(`/admin/audit-log?page=${page}&per_page=${perPage}`);
 export const adminListTemplates = () => api.get('/admin/templates');
+export const adminCreateTemplate = (data) => api.post('/admin/templates', data);
 export const adminUpdateTemplate = (id, data) => api.put(`/admin/templates/${id}`, data);
 
 export default api;
+
 

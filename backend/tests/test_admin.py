@@ -11,6 +11,8 @@ LOGIN_URL = "/auth/login"
 VERIFY_2FA_URL = "/auth/verify-2fa"
 PROFILE_URL = "/profile"
 ADMIN_USERS_URL = "/admin/users"
+ADMIN_TEMPLATES_URL = "/admin/templates"
+RESUMES_URL = "/resumes"
 
 SAMPLE_CONTENT = {
     "personal_info": {"full_name": "Target User", "email": "target@example.com"},
@@ -128,3 +130,51 @@ def test_admin_can_permanently_delete_user_and_resumes(client, db):
     assert resp.status_code == 200
     assert db.session.get(User, target_id) is None
     assert db.session.get(Resume, resume_id) is None
+
+
+def test_admin_can_create_and_persist_template(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.post(ADMIN_TEMPLATES_URL, headers=headers, json={
+        "template_id": "professional",
+        "name": "Professional",
+        "description": "Formal layout for corporate resumes",
+        "source_template_id": "classic",
+        "active": True,
+    })
+    assert resp.status_code == 201
+    data = resp.get_json()
+    assert data["id"] == "professional"
+    assert data["source_template_id"] == "classic"
+
+    list_resp = client.get(ADMIN_TEMPLATES_URL, headers=headers)
+    assert list_resp.status_code == 200
+    assert any(t["id"] == "professional" for t in list_resp.get_json())
+
+
+def test_deactivated_template_is_not_selectable_for_new_resumes(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    user = _create_user("user@example.com")
+    admin_headers = _login(client, admin)
+
+    update_resp = client.put(f"{ADMIN_TEMPLATES_URL}/modern", headers=admin_headers, json={
+        "active": False,
+    })
+    assert update_resp.status_code == 200
+    assert update_resp.get_json()["active"] is False
+
+    user_client = client.application.test_client()
+    user_headers = _login(user_client, user)
+    templates_resp = user_client.get(f"{RESUMES_URL}/templates", headers=user_headers)
+    assert templates_resp.status_code == 200
+    assert all(t["id"] != "modern" for t in templates_resp.get_json())
+
+    create_resp = user_client.post(RESUMES_URL, headers=user_headers, json={
+        "title": "Blocked Template",
+        "template_id": "modern",
+        "content_json": SAMPLE_CONTENT,
+    })
+    assert create_resp.status_code == 422
+    assert "template_id" in create_resp.get_json()["errors"]
+

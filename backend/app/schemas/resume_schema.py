@@ -1,19 +1,10 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 from urllib.parse import urlsplit, urlunsplit
 from marshmallow import (
     Schema, fields, validate, validates_schema, pre_load, ValidationError,
 )
-
-# Single source of truth for template ids and their display metadata.
-# Both the validation schema (OneOf) and the admin/resume routes reference this.
-TEMPLATE_METADATA: dict[str, dict[str, str]] = {
-    "modern":  {"name": "Modern",  "description": "Clean two-column layout with accent colors"},
-    "classic": {"name": "Classic", "description": "Traditional single-column format"},
-    "minimal": {"name": "Minimal", "description": "Simple, whitespace-focused design"},
-}
-ALLOWED_TEMPLATES: set[str] = set(TEMPLATE_METADATA)
 
 MAX_TEXT = 500
 MAX_ENTRIES = 20
@@ -259,17 +250,18 @@ class PreviewResumeContentSchema(NormalisedSchema):
 
 
 class PreviewResumeSchema(NormalisedSchema):
-    template_id = fields.Str(required=True, validate=validate.OneOf(ALLOWED_TEMPLATES))
+    template_id = fields.Str(required=True, validate=validate.Length(min=2, max=50))
     content_json = fields.Nested(PreviewResumeContentSchema, required=True)
 
 
 class CreateResumeSchema(NormalisedSchema):
     title = fields.Str(required=True, validate=validate.Length(min=1, max=100))
-    template_id = fields.Str(required=True, validate=validate.OneOf(ALLOWED_TEMPLATES))
+    template_id = fields.Str(required=True, validate=validate.Length(min=2, max=50))
     content_json = fields.Nested(ResumeContentSchema, required=True)
 
 
 class UpdateResumeSchema(NormalisedSchema):
     title = fields.Str(validate=validate.Length(min=1, max=100))
-    template_id = fields.Str(validate=validate.OneOf(ALLOWED_TEMPLATES))
+    template_id = fields.Str(validate=validate.Length(min=2, max=50))
     content_json = fields.Nested(ResumeContentSchema)
+
