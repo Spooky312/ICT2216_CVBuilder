@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from app.models.resume_template import ResumeTemplate
 from app.services import pdf_service
 
 
@@ -28,3 +29,44 @@ def test_saved_resume_export_uses_shared_content_renderer(monkeypatch):
         "content_json": resume.content_json,
         "timeout_seconds": 7,
     }
+
+
+def test_uploaded_template_html_is_used_for_pdf_generation(db, monkeypatch):
+    template = ResumeTemplate(
+        template_id="custom-html",
+        name="Custom HTML",
+        description="Uploaded",
+        source_template_id="custom-html",
+        html_content="<html><body>{{ resume.personal_info.full_name }}</body></html>",
+        original_filename="custom.html",
+        active=True,
+    )
+    db.session.add(template)
+    db.session.commit()
+    calls = {}
+
+    def fake_render(template_src, context):
+        calls["template_src"] = template_src
+        calls["context"] = context
+        return "<html><body>Alice</body></html>"
+
+    class FakeHTML:
+        def __init__(self, string):
+            calls["html"] = string
+
+        def write_pdf(self):
+            return b"%PDF uploaded"
+
+    monkeypatch.setattr(pdf_service, "_safe_render", fake_render)
+    monkeypatch.setattr(pdf_service, "HTML", FakeHTML)
+
+    result = pdf_service.generate_pdf_from_content(
+        "custom-html",
+        {"personal_info": {"full_name": "Alice"}},
+        timeout_seconds=0,
+    )
+
+    assert result == b"%PDF uploaded"
+    assert calls["template_src"] == template.html_content
+    assert calls["context"] == {"resume": {"personal_info": {"full_name": "Alice"}}}
+    assert calls["html"] == "<html><body>Alice</body></html>"

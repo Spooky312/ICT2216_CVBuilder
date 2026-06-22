@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import os
 import re
 
 from app.extensions import db
@@ -25,6 +26,15 @@ DEFAULT_TEMPLATE_METADATA: dict[str, dict[str, str]] = {
 
 BUILTIN_TEMPLATE_FILES: set[str] = set(DEFAULT_TEMPLATE_METADATA)
 _TEMPLATE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,49}$")
+ALLOWED_UPLOAD_EXTENSIONS = {".html", ".htm"}
+MAX_TEMPLATE_UPLOAD_BYTES = 100_000
+_UNSAFE_TEMPLATE_PATTERNS = (
+    re.compile(r"<\s*script", re.IGNORECASE),
+    re.compile(r"javascript\s*:", re.IGNORECASE),
+    re.compile(r"\b(?:https?|file)://", re.IGNORECASE),
+    re.compile(r"@import", re.IGNORECASE),
+    re.compile(r"url\s*\(", re.IGNORECASE),
+)
 
 
 def normalise_template_id(value: str) -> str:
@@ -93,6 +103,61 @@ def create_template(
         name=name,
         description=description,
         source_template_id=source_template_id,
+        active=active,
+    )
+    db.session.add(template)
+    db.session.commit()
+    return template
+
+
+def validate_uploaded_template(filename: str, raw_content: bytes) -> tuple[str | None, dict[str, list[str]]]:
+    errors: dict[str, list[str]] = {}
+    _, ext = os.path.splitext(filename.lower())
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        errors["template_file"] = ["Upload an .html or .htm file."]
+    if not raw_content:
+        errors.setdefault("template_file", []).append("Template file is required.")
+    if len(raw_content) > MAX_TEMPLATE_UPLOAD_BYTES:
+        errors.setdefault("template_file", []).append("Template file must be 100 KB or smaller.")
+    if b"\x00" in raw_content:
+        errors.setdefault("template_file", []).append("Template file must be plain text HTML.")
+
+    try:
+        html_content = raw_content.decode("utf-8")
+    except UnicodeDecodeError:
+        errors.setdefault("template_file", []).append("Template file must be UTF-8 encoded.")
+        return None, errors
+
+    stripped = html_content.strip()
+    if not stripped:
+        errors.setdefault("template_file", []).append("Template file cannot be empty.")
+    if "{{" not in stripped and "{%" not in stripped:
+        errors.setdefault("template_file", []).append("Template must contain Jinja placeholders for resume data.")
+    for pattern in _UNSAFE_TEMPLATE_PATTERNS:
+        if pattern.search(stripped):
+            errors.setdefault("template_file", []).append("Template cannot contain scripts or external resource references.")
+            break
+
+    return (None, errors) if errors else (stripped, {})
+
+
+def create_uploaded_template(
+    *,
+    template_id: str,
+    name: str,
+    description: str,
+    html_content: str,
+    original_filename: str,
+    active: bool = True,
+) -> ResumeTemplate:
+    ensure_default_templates()
+    template = ResumeTemplate(
+        template_id=template_id,
+        name=name,
+        description=description,
+        source_template_id=template_id,
+        html_content=html_content,
+        original_filename=original_filename,
         active=active,
     )
     db.session.add(template)

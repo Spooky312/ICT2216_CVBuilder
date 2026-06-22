@@ -1,11 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import signal
 import types
 from typing import TYPE_CHECKING, Any
 
-from jinja2 import Environment, BaseLoader, select_autoescape
+from jinja2 import BaseLoader, select_autoescape
+from jinja2.sandbox import SandboxedEnvironment
 from weasyprint import HTML
 
 from app.services.template_service import BUILTIN_TEMPLATE_FILES, get_template
@@ -13,7 +14,7 @@ from app.services.template_service import BUILTIN_TEMPLATE_FILES, get_template
 if TYPE_CHECKING:
     from app.models.resume import Resume
 
-_JINJA_ENV = Environment(
+_JINJA_ENV = SandboxedEnvironment(
     loader=BaseLoader(),
     autoescape=select_autoescape(["html", "xml"]),
 )
@@ -36,6 +37,10 @@ def _source_template_id(template_id: str) -> str:
 
 
 def _load_template(template_id: str) -> str:
+    persisted = get_template(template_id)
+    if persisted and persisted.html_content:
+        return persisted.html_content
+
     source_id = _source_template_id(template_id)
     path = os.path.join(_TEMPLATE_DIR, f"{source_id}.html")
     with open(path, "r", encoding="utf-8") as f:

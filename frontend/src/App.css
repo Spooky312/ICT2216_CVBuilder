@@ -420,3 +420,5 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .template-edit-form textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
 .template-edit-form small { font-size: 12px; color: var(--gray-400); }
 .template-admin-list { display: flex; flex-direction: column; gap: 1rem; }
+.template-active-toggle { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0 0 1rem; color: var(--gray-600); font-size: 13px; font-weight: 600; }
+.template-active-toggle input { width: auto; }

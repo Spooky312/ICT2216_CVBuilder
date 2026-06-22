@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '',
@@ -53,6 +53,9 @@ export const adminGetAuditLog = (page = 1, perPage = 100, filters = {}) => {
 };
 export const adminListTemplates = () => api.get('/admin/templates');
 export const adminCreateTemplate = (data) => api.post('/admin/templates', data);
+export const adminUploadTemplate = (data) => api.post('/admin/templates/upload', data, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+});
 export const adminUpdateTemplate = (id, data) => api.put(`/admin/templates/${id}`, data);
 
 export default api;

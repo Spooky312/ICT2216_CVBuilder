@@ -1,5 +1,6 @@
-﻿from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
+from io import BytesIO
 
 import pyotp
 
@@ -220,6 +221,57 @@ def test_admin_can_create_and_persist_template(client, db):
     assert list_resp.status_code == 200
     assert any(t["id"] == "professional" for t in list_resp.get_json())
 
+
+
+def test_admin_can_upload_template_and_user_can_select_it(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    user = _create_user("user@example.com")
+    headers = _login(client, admin)
+    html = b"""
+<!DOCTYPE html>
+<html><body><h1>{{ resume.personal_info.full_name }}</h1></body></html>
+"""
+
+    resp = client.post(f"{ADMIN_TEMPLATES_URL}/upload", headers=headers, data={
+        "template_id": "uploaded-html",
+        "name": "Uploaded HTML",
+        "description": "Admin uploaded HTML template",
+        "active": "true",
+        "template_file": (BytesIO(html), "uploaded.html"),
+    }, content_type="multipart/form-data")
+
+    assert resp.status_code == 201
+    data = resp.get_json()
+    assert data["id"] == "uploaded-html"
+    assert data["is_uploaded"] is True
+    assert data["original_filename"] == "uploaded.html"
+
+    user_client = client.application.test_client()
+    user_headers = _login(user_client, user)
+    templates_resp = user_client.get(f"{RESUMES_URL}/templates", headers=user_headers)
+    assert templates_resp.status_code == 200
+    assert any(t["id"] == "uploaded-html" and t["is_uploaded"] for t in templates_resp.get_json())
+
+    create_resp = user_client.post(RESUMES_URL, headers=user_headers, json={
+        "title": "Uploaded Template Resume",
+        "template_id": "uploaded-html",
+        "content_json": SAMPLE_CONTENT,
+    })
+    assert create_resp.status_code == 201
+
+
+def test_admin_template_upload_rejects_unsafe_html(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.post(f"{ADMIN_TEMPLATES_URL}/upload", headers=headers, data={
+        "template_id": "unsafe-html",
+        "name": "Unsafe HTML",
+        "template_file": (BytesIO(b"<html><script>alert(1)</script>{{ resume.personal_info.full_name }}</html>"), "unsafe.html"),
+    }, content_type="multipart/form-data")
+
+    assert resp.status_code == 422
+    assert "template_file" in resp.get_json()["errors"]
 
 def test_deactivated_template_is_not_selectable_for_new_resumes(client, db):
     admin = _create_user("admin@example.com", role="admin")

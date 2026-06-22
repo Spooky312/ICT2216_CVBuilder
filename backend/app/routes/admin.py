@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timezone, timedelta
@@ -6,6 +6,7 @@ from functools import wraps
 from typing import Any, TypeVar
 
 from flask import Blueprint, request, jsonify, Response
+from werkzeug.utils import secure_filename
 from flask_jwt_extended import jwt_required
 
 from app.extensions import db
@@ -13,8 +14,8 @@ from app.models.user import User
 from app.models.audit_log import AuditLog
 from app.models.resume_template import ResumeTemplate
 from app.services.template_service import (
-    BUILTIN_TEMPLATE_FILES, create_template, ensure_default_templates,
-    list_templates, normalise_template_id, valid_template_id,
+    BUILTIN_TEMPLATE_FILES, create_template, create_uploaded_template, ensure_default_templates,
+    list_templates, normalise_template_id, valid_template_id, validate_uploaded_template,
 )
 from app.utils.audit import log_event
 from app.utils.helpers import current_user_id, paginate_response, parse_uuid
@@ -243,6 +244,52 @@ def add_template() -> tuple[Response, int]:
     )
     log_event("admin_template_created", user_id=current_user_id(),
               metadata={"template_id": template_id, "source_template_id": source_template_id})
+    return jsonify(template.to_dict()), 201
+
+
+
+@admin_bp.route("/templates/upload", methods=["POST"])
+@admin_required
+def upload_template() -> tuple[Response, int]:
+    ensure_default_templates()
+    template_id = normalise_template_id(request.form.get("template_id", ""))
+    name = request.form.get("name", "").strip()
+    description = request.form.get("description", "").strip()
+    active = request.form.get("active", "true").lower() != "false"
+    uploaded_file = request.files.get("template_file")
+
+    errors: dict[str, list[str]] = {}
+    if not valid_template_id(template_id):
+        errors["template_id"] = ["Use 2-50 lowercase letters, numbers, hyphens, or underscores."]
+    elif db.session.get(ResumeTemplate, template_id):
+        errors["template_id"] = ["Template ID already exists."]
+    if not 1 <= len(name) <= 80:
+        errors["name"] = ["Name must be 1-80 characters."]
+    if len(description) > 250:
+        errors["description"] = ["Description must be 250 characters or fewer."]
+    if not uploaded_file or not uploaded_file.filename:
+        errors["template_file"] = ["Template file is required."]
+
+    html_content = None
+    filename = ""
+    if uploaded_file and uploaded_file.filename:
+        filename = secure_filename(uploaded_file.filename)
+        html_content, file_errors = validate_uploaded_template(filename, uploaded_file.read())
+        errors.update(file_errors)
+
+    if errors:
+        return jsonify({"errors": errors}), 422
+
+    template = create_uploaded_template(
+        template_id=template_id,
+        name=name,
+        description=description,
+        html_content=html_content or "",
+        original_filename=filename,
+        active=active,
+    )
+    log_event("admin_template_uploaded", user_id=current_user_id(),
+              metadata={"template_id": template_id, "filename": filename})
     return jsonify(template.to_dict()), 201
 
 

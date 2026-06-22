@@ -1,7 +1,7 @@
-﻿import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   adminListUsers, adminLockUser, adminUnlockUser, adminDeactivateUser, adminDeleteUser,
-  adminGetAuditLog, adminListTemplates, adminCreateTemplate, adminUpdateTemplate,
+  adminGetAuditLog, adminListTemplates, adminCreateTemplate, adminUploadTemplate, adminUpdateTemplate,
 } from '../services/api';
 import Spinner from '../components/common/Spinner';
 import Pagination from '../components/common/Pagination';
@@ -320,8 +320,12 @@ function LogsTab({ logs, filters, onApplyFilters, onRefresh }) {
 }
 function TemplatesTab({ templates, setTemplates }) {
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [createForm, setCreateForm] = useState({
     template_id: '', name: '', description: '', source_template_id: 'modern', active: true,
+  });
+  const [uploadForm, setUploadForm] = useState({
+    template_id: '', name: '', description: '', active: true, template_file: null,
   });
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', description: '', source_template_id: 'modern' });
@@ -329,7 +333,16 @@ function TemplatesTab({ templates, setTemplates }) {
   const sourceOptions = ['modern', 'classic', 'minimal'];
 
   const updateCreate = (field, value) => setCreateForm((prev) => ({ ...prev, [field]: value }));
+  const updateUpload = (field, value) => setUploadForm((prev) => ({ ...prev, [field]: value }));
   const updateEdit = (field, value) => setEditForm((prev) => ({ ...prev, [field]: value }));
+
+  const upsertTemplate = (template) => {
+    setTemplates((prev) => {
+      const exists = prev.some((x) => x.id === template.id);
+      const next = exists ? prev.map((x) => x.id === template.id ? template : x) : [...prev, template];
+      return next.sort((a, b) => a.name.localeCompare(b.name));
+    });
+  };
 
   const startEdit = (t) => {
     setEditing(t.id);
@@ -345,7 +358,7 @@ function TemplatesTab({ templates, setTemplates }) {
     setSaving('create');
     try {
       const res = await adminCreateTemplate(createForm);
-      setTemplates((prev) => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
+      upsertTemplate(res.data);
       setCreateForm({ template_id: '', name: '', description: '', source_template_id: 'modern', active: true });
       setCreating(false);
     } catch (err) {
@@ -356,10 +369,40 @@ function TemplatesTab({ templates, setTemplates }) {
     }
   };
 
+  const uploadTemplate = async (e) => {
+    e.preventDefault();
+    if (!uploadForm.template_file) {
+      alert('Choose an HTML template file.');
+      return;
+    }
+    setSaving('upload');
+    const formData = new FormData();
+    formData.append('template_id', uploadForm.template_id);
+    formData.append('name', uploadForm.name);
+    formData.append('description', uploadForm.description);
+    formData.append('active', uploadForm.active ? 'true' : 'false');
+    formData.append('template_file', uploadForm.template_file);
+    try {
+      const res = await adminUploadTemplate(formData);
+      upsertTemplate(res.data);
+      setUploadForm({ template_id: '', name: '', description: '', active: true, template_file: null });
+      e.target.reset();
+      setUploading(false);
+    } catch (err) {
+      const data = err.response?.data;
+      alert(data?.message || JSON.stringify(data?.errors || 'Failed to upload template.'));
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const saveTemplate = async (t) => {
     setSaving(t.id);
+    const payload = t.is_uploaded
+      ? { name: editForm.name, description: editForm.description }
+      : editForm;
     try {
-      const res = await adminUpdateTemplate(t.id, editForm);
+      const res = await adminUpdateTemplate(t.id, payload);
       setTemplates((prev) => prev.map((x) => x.id === t.id ? res.data : x));
       setEditing(null);
     } catch (err) {
@@ -386,8 +429,11 @@ function TemplatesTab({ templates, setTemplates }) {
     <div className="admin-tab-content">
       <div className="admin-toolbar">
         <p className="admin-count" style={{ margin: 0 }}>{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
-        <button className="btn-primary-sm" onClick={() => setCreating((value) => !value)}>
+        <button className="btn-primary-sm" onClick={() => { setCreating((value) => !value); setUploading(false); }}>
           {creating ? 'Cancel' : 'Add Template'}
+        </button>
+        <button className="btn-secondary-sm" onClick={() => { setUploading((value) => !value); setCreating(false); }}>
+          {uploading ? 'Cancel Upload' : 'Upload HTML'}
         </button>
       </div>
 
@@ -423,6 +469,40 @@ function TemplatesTab({ templates, setTemplates }) {
         </form>
       )}
 
+      {uploading && (
+        <form className="entry-card template-edit-form" onSubmit={uploadTemplate}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="upload-template-id">Template ID</label>
+              <input id="upload-template-id" value={uploadForm.template_id}
+                onChange={(e) => updateUpload('template_id', e.target.value)} placeholder="custom-html" required />
+            </div>
+            <div className="form-group">
+              <label htmlFor="upload-template-name">Name</label>
+              <input id="upload-template-name" value={uploadForm.name}
+                onChange={(e) => updateUpload('name', e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label htmlFor="upload-template-file">HTML File</label>
+              <input id="upload-template-file" type="file" accept=".html,.htm,text/html"
+                onChange={(e) => updateUpload('template_file', e.target.files?.[0] || null)} required />
+            </div>
+          </div>
+          <div className="form-group">
+            <label htmlFor="upload-template-description">Description</label>
+            <textarea id="upload-template-description" rows={2} value={uploadForm.description} maxLength={250}
+              onChange={(e) => updateUpload('description', e.target.value)} />
+          </div>
+          <label className="template-active-toggle">
+            <input type="checkbox" checked={uploadForm.active} onChange={(e) => updateUpload('active', e.target.checked)} />
+            Active
+          </label>
+          <button className="btn-primary-sm" type="submit" disabled={saving === 'upload'}>
+            {saving === 'upload' ? <Spinner size={14} /> : 'Upload Template'}
+          </button>
+        </form>
+      )}
+
       <div className="template-admin-list">
         {templates.map((t) => (
           <div key={t.id} className={`entry-card ${!t.active ? 'entry-card-inactive' : ''}`}>
@@ -430,6 +510,7 @@ function TemplatesTab({ templates, setTemplates }) {
               <div>
                 <strong>{t.name}</strong>
                 <code className="tmpl-id"> ({t.id})</code>
+                {t.is_uploaded && <span className="badge badge-user" style={{ marginLeft: 8 }}>Uploaded</span>}
               </div>
               <div className="action-cell">
                 <span className={`badge ${t.active ? 'badge-active' : 'badge-inactive'}`}>{t.active ? 'Active' : 'Inactive'}</span>
@@ -446,12 +527,14 @@ function TemplatesTab({ templates, setTemplates }) {
                     <label>Name</label>
                     <input value={editForm.name} onChange={(e) => updateEdit('name', e.target.value)} />
                   </div>
-                  <div className="form-group">
-                    <label>Render Layout</label>
-                    <select value={editForm.source_template_id} onChange={(e) => updateEdit('source_template_id', e.target.value)}>
-                      {sourceOptions.map((id) => <option key={id} value={id}>{id}</option>)}
-                    </select>
-                  </div>
+                  {!t.is_uploaded && (
+                    <div className="form-group">
+                      <label>Render Layout</label>
+                      <select value={editForm.source_template_id} onChange={(e) => updateEdit('source_template_id', e.target.value)}>
+                        {sourceOptions.map((id) => <option key={id} value={id}>{id}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <label>Description</label>
                 <textarea rows={2} value={editForm.description} maxLength={250}
@@ -467,7 +550,9 @@ function TemplatesTab({ templates, setTemplates }) {
             ) : (
               <div className="template-desc-row">
                 <p className="text-muted" style={{ margin: 0 }}>{t.description}</p>
-                <small className="text-muted">Render layout: {t.source_template_id}</small>
+                <small className="text-muted">
+                  {t.is_uploaded ? `Uploaded file: ${t.original_filename || 'HTML template'}` : `Render layout: ${t.source_template_id}`}
+                </small>
               </div>
             )}
           </div>
