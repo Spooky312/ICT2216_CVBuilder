@@ -5,11 +5,13 @@ on:
     branches: [main, master, dev]
   pull_request:
     branches: [main, master, dev]
+  workflow_dispatch:
 
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
     runs-on: ubuntu-latest
+    if: ${{ github.event.repository.private == false }}
     permissions:
       security-events: write
       actions: read
