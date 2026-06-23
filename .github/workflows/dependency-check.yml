@@ -1,4 +1,4 @@
-﻿name: OWASP Dependency-Check
+name: OWASP Dependency-Check
 
 on:
   push:
@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
       security-events: write
 
     steps:
@@ -50,7 +51,7 @@ jobs:
           path: "reports/dependency-check"
 
       - name: Upload Dependency-Check SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('reports/dependency-check/dependency-check-report.sarif') != ''
         with:
           sarif_file: reports/dependency-check/dependency-check-report.sarif
