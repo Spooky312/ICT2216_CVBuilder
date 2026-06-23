@@ -597,7 +597,6 @@ export default function AdminPanel() {
     }
   }, [logFilters]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadTab(tab); }, [tab, loadTab]);
 
   const applyLogFilters = (nextFilters) => {
