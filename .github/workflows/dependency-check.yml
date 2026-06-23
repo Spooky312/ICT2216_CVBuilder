@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
+      security-events: write
 
     steps:
       - name: Checkout repository
@@ -52,3 +54,9 @@ jobs:
         with:
           name: owasp-dependency-check-reports
           path: "reports/dependency-check"
+
+      - name: Upload Dependency-Check SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: ${{ always() && github.event.repository.private == false && hashFiles('reports/dependency-check/dependency-check-report.sarif') != '' }}
+        with:
+          sarif_file: reports/dependency-check/dependency-check-report.sarif
