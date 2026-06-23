@@ -40,9 +40,8 @@ order (top one was blocking everything below it, now fixed):
       client but the JWT cookie isn't authenticating the next request. Check cookie
       persistence in the Flask test client, or a mismatch in how `_login()` sets up
       auth vs. what the resume routes check.
-- [ ] `codeql.yml` separately fails with "Code scanning is not enabled for this
-      repository" — repo Settings → Code security, may need GitHub Advanced Security
-      (not guaranteed on a private student repo, confirm before citing as D2 evidence).
+- [x] CodeQL workflow is retained for the future public repo, but the job is skipped
+      while this repo is private because GitHub code scanning is not enabled.
 
 ---
 
@@ -54,9 +53,9 @@ order (top one was blocking everything below it, now fixed):
       and switch off plain-HTTP/`FLASK_ENV=development` before SR-08 can be claimed as
       satisfied — config already auto-detects HTTP/HTTPS, just needs the cert
 - [x] Repo structure decided and documented
-- [x] GitHub Actions CI: `ci.yml`, `codeql.yml`, `python-static-analysis.yml`,
-      `sonarqube.yml` exist, trigger on push/PR to `main`/`master`/`dev` — not all green,
-      see bugs above
+- [x] GitHub Actions CI: `ci.yml`, `static-analysis.yml`, `sonarqube.yml`,
+      `dependency-check.yml`, and guarded `codeql.yml` exist, trigger on push/PR to
+      `main`/`master`/`dev`
 - [x] Flask `after_request` security headers — CSP, X-Frame-Options,
       X-Content-Type-Options, Referrer-Policy, HSTS (when `JWT_COOKIE_SECURE`) all
       present in `app/__init__.py`
@@ -138,7 +137,7 @@ the end.
       `ondelete="CASCADE"`), satisfies SR-09's purge requirement synchronously, no
       background job needed
 - [x] `GET/POST/PUT/DELETE /resumes/{id}` plus `/duplicate`, `/export`, `/limits`,
-      `/templates` — all implemented with ownership checks
+      `/resumes/templates` — all implemented with ownership checks
 - [x] `content_json` shape settled (personal_info, education, experience, projects,
       skills — see `tests/test_resumes.py` for the agreed contract)
 - [x] `GET /resumes/templates` — lists active templates (FR-11)

@@ -11,7 +11,7 @@ integration.
 |---|---|---|---|---|
 | POST | `/auth/register` | FR-02, FR-08 | SR-02, SR-05, SR-15 | Creates user + TOTP enrolment (return QR/secret once, never again). |
 | POST | `/auth/login` | FR-01 | SR-01, SR-03, SR-04 | Step 1: username+password. Rate-limited 5/15min/IP. |
-| POST | `/auth/login/verify-totp` | FR-01, FR-08 | SR-15 | Step 2: TOTP code. Session only established after this succeeds. |
+| POST | `/auth/verify-2fa` | FR-01, FR-08 | SR-15 | Step 2: TOTP code. Session only established after this succeeds. |
 | POST | `/auth/logout` | FR-06 | SR-04, SR-12, SR-13 | Blacklists session token server-side. CSRF token required. |
 
 ## Profile
@@ -21,7 +21,7 @@ integration.
 | GET | `/profile` | FR-03 | SR-06, SR-07 | Ownership-scoped to authenticated user. |
 | PUT | `/profile` | FR-04 | SR-02, SR-05, SR-07, SR-12 | CSRF token required. |
 | DELETE | `/profile` | FR-05 | SR-07, SR-09, SR-12 | CSRF required; triggers PII purge within 24h (SR-09). |
-| POST | `/profile/change-password` | FR-07 | SR-01, SR-02, SR-12 | Requires current password + new password meeting policy. |
+| PUT | `/profile` | FR-07 | SR-01, SR-02, SR-12 | Password change is handled on the profile update route with `current_password` + `new_password`. |
 
 ## Resumes
 
@@ -33,17 +33,19 @@ integration.
 | PUT | `/resumes/{resume_id}` | FR-09 | SR-05, SR-06, SR-07, SR-12 | Ownership check + CSRF. |
 | DELETE | `/resumes/{resume_id}` | — | SR-06, SR-07, SR-12 | Ownership check + CSRF. |
 | GET | `/resumes/{resume_id}/export` | FR-10 | SR-05 | Rate-limited 10/min/user. Mitigates R-06 DoS. |
-| GET | `/templates` | FR-11 | SR-06 | List available (active) templates. |
+| GET | `/resumes/templates` | FR-11 | SR-06 | List available active templates. |
 
 ## Admin
 
 | Method | Route | FR | SR | Notes |
 |---|---|---|---|---|
 | POST | `/admin/templates` | FR-12 | SR-06, SR-07, SR-12 | RBAC: admin only. |
-| PUT | `/admin/templates/{template_id}` | FR-12 | SR-06, SR-07, SR-12 | RBAC: admin only. |
-| DELETE | `/admin/templates/{template_id}` | FR-12 | SR-06, SR-07, SR-12 | "Deactivate," not hard delete, unless team decides otherwise. |
+| POST | `/admin/templates/upload` | FR-12 | SR-06, SR-07, SR-12 | RBAC: admin only; uploads a validated HTML template. |
+| PUT | `/admin/templates/{template_id}` | FR-12 | SR-06, SR-07, SR-12 | RBAC: admin only; update metadata/source or deactivate by setting `active: false`. |
 | GET | `/admin/users` | FR-13 | SR-06, SR-07 | RBAC: admin only. |
-| PUT | `/admin/users/{user_id}/deactivate` | FR-13 | SR-06, SR-07, SR-12 | RBAC: admin only. |
+| POST | `/admin/users/{user_id}/lock` | FR-13 | SR-06, SR-07, SR-12 | RBAC: admin only; temporary lock. |
+| POST | `/admin/users/{user_id}/unlock` | FR-13 | SR-06, SR-07, SR-12 | RBAC: admin only; clears lockout state. |
+| POST | `/admin/users/{user_id}/deactivate` | FR-13 | SR-06, SR-07, SR-12 | RBAC: admin only. |
 | DELETE | `/admin/users/{user_id}` | FR-13 | SR-06, SR-07, SR-12 | RBAC: admin only; hard delete + PII purge. |
 | GET | `/admin/audit-log` | FR-14 | SR-06, SR-07, SR-14 | RBAC: admin only. Filterable by event type, user, date range. Read-only — no PUT/DELETE route exists by design. |
 
