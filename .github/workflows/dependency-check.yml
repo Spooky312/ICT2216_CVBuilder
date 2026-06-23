@@ -13,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
-      security-events: write
 
     steps:
       - name: Checkout repository
@@ -22,6 +20,10 @@ jobs:
 
       - name: Create Dependency-Check reports directory
         run: mkdir -p reports/dependency-check
+
+      - name: Install frontend dependencies for Dependency-Check
+        working-directory: frontend
+        run: npm ci
 
       - name: Run OWASP Dependency-Check
         id: dependency-check
@@ -34,6 +36,7 @@ jobs:
           args: >
             --enableExperimental
             --enableRetired
+            --suppression .github/dependency-check-suppressions.xml
             --failOnCVSS 7
             --exclude "**/.git/**"
             --exclude "**/node_modules/**"
@@ -49,9 +52,3 @@ jobs:
         with:
           name: owasp-dependency-check-reports
           path: "reports/dependency-check"
-
-      - name: Upload Dependency-Check SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('reports/dependency-check/dependency-check-report.sarif') != ''
-        with:
-          sarif_file: reports/dependency-check/dependency-check-report.sarif

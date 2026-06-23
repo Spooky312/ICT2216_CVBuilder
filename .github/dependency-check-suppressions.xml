@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+  <suppress>
+    <notes><![CDATA[
+      False positive: CVE-2025-45770 applies to lcobucci/jwt / jwt_project:jwt,
+      not the Python package Flask-JWT-Extended. Dependency-Check maps
+      pkg:pypi/flask-jwt-extended to cpe:2.3:a:jwt_project:jwt, which is a
+      different ecosystem and product.
+    ]]></notes>
+    <packageUrl regex="true">^pkg:pypi/flask-jwt-extended@.*$</packageUrl>
+    <cve>CVE-2025-45770</cve>
+  </suppress>
+</suppressions>
