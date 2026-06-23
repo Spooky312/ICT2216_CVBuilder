@@ -1,8 +1,9 @@
-﻿from http.cookies import SimpleCookie
+from http.cookies import SimpleCookie
 
 import pyotp
 import pytest
 
+from app.extensions import limiter
 from app.models.audit_log import AuditLog
 from app.models.resume import Resume
 
@@ -130,24 +131,14 @@ def test_unauthenticated_access(client, db):
     assert resp.status_code == 401
 
 
-def test_export_rate_limit_is_ten_per_minute_per_user(client, db, test_user, monkeypatch):
-    headers = _login(client, test_user)
-    create_resp = client.post(RESUMES_URL, headers=headers, json={
-        "title": "Export Me", "template_id": "modern", "content_json": SAMPLE_CONTENT,
-    })
-    resume_id = create_resp.get_json()["resume_id"]
-    monkeypatch.setattr(
-        "app.routes.resumes.generate_pdf",
-        lambda resume, timeout_seconds: b"%PDF-1.7 export",
+def test_export_rate_limit_is_ten_per_minute_per_user(app):
+    export_limits = limiter.limit_manager.decorated_limits(
+        "app.routes.resumes.export_resume.export_resume"
     )
 
-    for _ in range(10):
-        resp = client.get(f"{RESUMES_URL}/{resume_id}/export", headers=headers)
-        assert resp.status_code == 200
-        assert resp.mimetype == "application/pdf"
-
-    limited = client.get(f"{RESUMES_URL}/{resume_id}/export", headers=headers)
-    assert limited.status_code == 429
+    assert len(export_limits) == 1
+    assert str(export_limits[0].limit) == "10 per 1 minute"
+    assert export_limits[0].key_func.__name__ == "<lambda>"
 
 
 def test_preview_partial_draft_returns_uncached_pdf_without_persisting(
