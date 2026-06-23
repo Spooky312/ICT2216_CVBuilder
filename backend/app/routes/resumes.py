@@ -228,7 +228,7 @@ def duplicate_resume(resume_id: str) -> tuple[Response, int]:
 
 @resumes_bp.route("/<resume_id>/export", methods=["GET"])
 @jwt_required()
-@limiter.limit("20 per hour")
+@limiter.limit("10 per minute", key_func=lambda: str(current_user_id()))
 def export_resume(resume_id: str) -> tuple[Response, int] | Response:
     user, err = get_current_user_or_404()
     if err:
