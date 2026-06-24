@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ resume.title | default('Test Template') }}</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+        }
+        .header { 
+            text-align: center; 
+            border-bottom: 2px solid #2c3e50; 
+            padding-bottom: 1rem; 
+            margin-bottom: 2rem; 
+        }
+        h1 { 
+            color: #2c3e50; 
+            margin: 0; 
+        }
+        .contact { 
+            color: #7f8c8d; 
+            font-size: 0.9rem; 
+        }
+        .section-title { 
+            color: #2980b9; 
+            text-transform: uppercase; 
+            font-size: 1.2rem; 
+            margin-top: 2rem; 
+        }
+        .warning-box {
+            background-color: #fdfae6;
+            border: 1px dashed #f39c12;
+            padding: 10px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ resume.personal_info.full_name | default('Applicant Name') }}</h1>
+        <div class="contact">
+            {{ resume.personal_info.email | default('email@example.com') }}
+        </div>
+    </div>
+
+    <h2 class="section-title">Summary</h2>
+    <p>{{ resume.personal_info.summary | default('This is a test summary rendered from the uploaded HTML template.') }}</p>
+
+    <div class="warning-box">
+        <strong>Admin Test Template:</strong> This template is safe to delete from the admin dashboard once testing is complete.
+    </div>
+</body>
+</html>

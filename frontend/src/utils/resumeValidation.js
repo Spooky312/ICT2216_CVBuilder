@@ -171,7 +171,7 @@ function validateSkills(skills = {}) {
 
 export function validateResumeStep(stepId, content, templateId) {
   switch (stepId) {
-    case 'template': return ['modern', 'classic', 'minimal'].includes(templateId)
+    case 'template': return text(templateId)
       ? {} : { template_id: 'Choose an available template.' };
     case 'personal': return validatePersonal(content.personal_info);
     case 'education': return validateEducation(content.education);

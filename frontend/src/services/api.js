@@ -55,9 +55,17 @@ export const adminGetAuditLog = (page = 1, perPage = 100, filters = {}) => {
 export const adminListTemplates = () => api.get('/api/admin/templates');
 export const adminCreateTemplate = (data) => api.post('/api/admin/templates', data);
 export const adminUploadTemplate = (data) => api.post('/api/admin/templates/upload', data, {
-  headers: { 'Content-Type': 'multipart/form-data' },
+  // This explicitly deletes the default JSON header just for this one request,
+  // allowing the browser to safely attach the file and generate the boundary string!
+  transformRequest: [(data, headers) => {
+    delete headers['Content-Type'];
+    return data;
+  }]
 });
 export const adminUpdateTemplate = (id, data) => api.put(`/api/admin/templates/${id}`, data);
+export const adminDeleteTemplate = (id) => api.delete(`/api/admin/templates/${id}`);
+
+export const getTemplates = () => api.get('/api/resumes/templates');
 
 export default api;
 
