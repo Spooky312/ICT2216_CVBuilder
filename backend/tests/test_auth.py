@@ -4,11 +4,13 @@ import pyotp
 
 from app.models.revoked_token import RevokedToken
 
-REGISTER_URL = "/auth/register"
-LOGIN_URL = "/auth/login"
-VERIFY_2FA_URL = "/auth/verify-2fa"
-LOGOUT_URL = "/auth/logout"
-PROFILE_URL = "/profile"
+from datetime import datetime, timedelta, timezone
+
+REGISTER_URL = "/api/auth/register"
+LOGIN_URL = "/api/auth/login"
+VERIFY_2FA_URL = "/api/auth/verify-2fa"
+LOGOUT_URL = "/api/auth/logout"
+PROFILE_URL = "/api/profile"
 
 VALID_USER = {
     "email": "alice@example.com",
@@ -160,4 +162,32 @@ def test_account_lockout(client, db, test_user):
         "password": "SecurePass1!",
     })
     assert resp.status_code in (401, 429)
+
+
+def test_locked_user_cannot_login(client, db, test_user):
+    # Manually lock the user in the database
+    test_user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+    db.session.commit()
+
+    resp = client.post(LOGIN_URL, json={
+        "email": test_user.email,
+        "password": "SecurePass1!",
+    })
+    
+    assert resp.status_code == 429
+    assert "temporarily locked" in resp.get_json()["message"]
+
+
+def test_deactivated_user_cannot_login_directly(client, db, test_user):
+    # Manually deactivate the user
+    test_user.is_active = False
+    db.session.commit()
+
+    resp = client.post(LOGIN_URL, json={
+        "email": test_user.email,
+        "password": "SecurePass1!",
+    })
+    
+    assert resp.status_code == 403
+    assert "deactivated" in resp.get_json()["message"]
 
