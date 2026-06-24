@@ -19,7 +19,7 @@ export default function Navbar() {
       <div className="navbar-links">
         {user ? (
           <>
-            <Link to="/dashboard">My Resumes</Link>
+            {user.role !== 'admin' && <Link to="/dashboard">My Resumes</Link>}
             <Link to="/profile">Profile</Link>
             {user.role === 'admin' && <Link to="/admin">Admin</Link>}
             <button className="btn-link" onClick={handleLogout}>Logout</button>

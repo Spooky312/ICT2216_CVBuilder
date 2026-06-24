@@ -7,7 +7,7 @@ from app.schemas.user_schema import UpdateProfileSchema, DeleteAccountSchema
 from app.utils.audit import log_event
 from app.utils.helpers import get_current_user_or_404, load_or_422
 
-profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
+profile_bp = Blueprint("profile", __name__, url_prefix="/api/profile")
 
 update_schema = UpdateProfileSchema()
 delete_schema = DeleteAccountSchema()

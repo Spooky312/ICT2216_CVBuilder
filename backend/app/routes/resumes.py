@@ -15,7 +15,7 @@ from app.services.template_service import get_active_template, list_templates
 from app.utils.audit import log_event
 from app.utils.helpers import current_user_id, get_current_user_or_404, load_or_422
 
-resumes_bp = Blueprint("resumes", __name__, url_prefix="/resumes")
+resumes_bp = Blueprint("resumes", __name__, url_prefix="/api/resumes")
 
 create_schema = CreateResumeSchema()
 update_schema = UpdateResumeSchema()

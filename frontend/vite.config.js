@@ -19,7 +19,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     proxy: {
-      '^/(auth|profile|resumes|admin|health)': {
+      '/api': {
         target: apiProxyTarget,
         changeOrigin: true,
       },
