@@ -1,7 +1,8 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as apiLogin, verifyTwoFactor } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import TotpQrCode from './TotpQrCode';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -24,10 +25,7 @@ export default function Login() {
       const res = await apiLogin(form);
       if (res.data.requires_2fa) {
         setChallenge(res.data.challenge_token);
-        setSetup(res.data.totp_secret ? {
-          secret: res.data.totp_secret,
-          uri: res.data.totp_uri,
-        } : null);
+        setSetup(res.data.totp_uri ? { uri: res.data.totp_uri } : null);
         setTotpCode('');
         return;
       }
@@ -100,11 +98,10 @@ export default function Login() {
       ) : (
         <form onSubmit={handleTotpSubmit} noValidate>
           {setup && (
-            <div className="alert alert-warning">
-              <p>Set up two-factor authentication in your authenticator app before continuing.</p>
-              <p><strong>Setup key:</strong> <code>{setup.secret}</code></p>
-              <p><strong>URI:</strong> <code>{setup.uri}</code></p>
-            </div>
+            <>
+              <p className="text-muted">Set up two-factor authentication in your authenticator app before continuing.</p>
+              <TotpQrCode uri={setup.uri} />
+            </>
           )}
 
           <div className="form-group">

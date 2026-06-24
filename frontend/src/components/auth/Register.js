@@ -1,6 +1,7 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { register } from '../../services/api';
+import TotpQrCode from './TotpQrCode';
 
 const PASSWORD_RULES = [
   { test: (p) => p.length >= 12, label: 'At least 12 characters' },
@@ -24,7 +25,7 @@ export default function Register() {
     setLoading(true);
     try {
       const res = await register(form);
-      setSetup({ secret: res.data.totp_secret, uri: res.data.totp_uri });
+      setSetup({ uri: res.data.totp_uri });
     } catch (err) {
       const data = err.response?.data;
       if (data?.errors) setErrors(data.errors);
@@ -41,10 +42,7 @@ export default function Register() {
         <p className="text-muted">
           Add this account to your authenticator app, then use the generated code when logging in.
         </p>
-        <div className="alert alert-warning">
-          <p><strong>Setup key:</strong> <code>{setup.secret}</code></p>
-          <p><strong>URI:</strong> <code>{setup.uri}</code></p>
-        </div>
+        <TotpQrCode uri={setup.uri} />
         <Link to="/login" className="btn-primary" style={{ marginTop: '1rem', display: 'inline-block' }}>
           Go to Login
         </Link>
