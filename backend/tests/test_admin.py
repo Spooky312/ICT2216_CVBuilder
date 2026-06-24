@@ -3,6 +3,7 @@ from http.cookies import SimpleCookie
 from io import BytesIO
 
 import pyotp
+import pytest
 
 from app.extensions import db
 from app.models.audit_log import AuditLog
@@ -10,13 +11,13 @@ from app.models.resume import Resume
 from app.models.user import User
 from app.utils.totp import encrypt_totp_secret, generate_totp_secret
 
-LOGIN_URL = "/auth/login"
-VERIFY_2FA_URL = "/auth/verify-2fa"
-PROFILE_URL = "/profile"
-ADMIN_USERS_URL = "/admin/users"
-ADMIN_AUDIT_URL = "/admin/audit-log"
-ADMIN_TEMPLATES_URL = "/admin/templates"
-RESUMES_URL = "/resumes"
+LOGIN_URL = "/api/auth/login"
+VERIFY_2FA_URL = "/api/auth/verify-2fa"
+PROFILE_URL = "/api/profile"
+ADMIN_USERS_URL = "/api/admin/users"
+ADMIN_AUDIT_URL = "/api/admin/audit-log"
+ADMIN_TEMPLATES_URL = "/api/admin/templates"
+RESUMES_URL = "/api/resumes"
 
 SAMPLE_CONTENT = {
     "personal_info": {"full_name": "Target User", "email": "target@example.com"},
@@ -298,3 +299,55 @@ def test_deactivated_template_is_not_selectable_for_new_resumes(client, db):
     assert create_resp.status_code == 422
     assert "template_id" in create_resp.get_json()["errors"]
 
+@pytest.mark.parametrize("method, endpoint", [
+    ("GET", ADMIN_USERS_URL),
+    ("POST", f"{ADMIN_USERS_URL}/123e4567-e89b-12d3-a456-426614174000/lock"),
+    ("POST", f"{ADMIN_USERS_URL}/123e4567-e89b-12d3-a456-426614174000/unlock"),
+    ("POST", f"{ADMIN_USERS_URL}/123e4567-e89b-12d3-a456-426614174000/deactivate"),
+    ("DELETE", f"{ADMIN_USERS_URL}/123e4567-e89b-12d3-a456-426614174000"),
+    ("GET", ADMIN_AUDIT_URL),
+    ("POST", ADMIN_TEMPLATES_URL),
+    ("POST", f"{ADMIN_TEMPLATES_URL}/upload"),
+    ("PUT", f"{ADMIN_TEMPLATES_URL}/modern"),
+])
+def test_non_admin_cannot_access_any_admin_routes(client, db, test_user, method, endpoint):
+    # This covers both standard users trying to access admin routes
+    # AND verifying that template management requires admin permissions
+    headers = _login(client, test_user)
+    
+    if method == "GET":
+        resp = client.get(endpoint, headers=headers)
+    elif method == "POST":
+        resp = client.post(endpoint, headers=headers, json={})
+    elif method == "PUT":
+        resp = client.put(endpoint, headers=headers, json={})
+    else:
+        resp = client.delete(endpoint, headers=headers)
+        
+    assert resp.status_code == 403
+    assert "Admin access required" in resp.get_json()["message"]
+
+
+def test_admin_actions_create_audit_logs(client, db):
+    admin = _create_user("admin2@example.com", role="admin")
+    target = _create_user("target2@example.com")
+    headers = _login(client, admin)
+
+    # 1. Test Lock User Logging
+    client.post(f"{ADMIN_USERS_URL}/{target.user_id}/lock", headers=headers, json={"minutes": 30})
+    lock_log = AuditLog.query.filter_by(event_type="admin_user_locked", user_id=admin.user_id).first()
+    assert lock_log is not None
+    assert lock_log.extra["target_user"] == str(target.user_id)
+    assert lock_log.extra["minutes"] == 30
+
+    # 2. Test Unlock User Logging
+    client.post(f"{ADMIN_USERS_URL}/{target.user_id}/unlock", headers=headers)
+    unlock_log = AuditLog.query.filter_by(event_type="admin_user_unlocked", user_id=admin.user_id).first()
+    assert unlock_log is not None
+    assert unlock_log.extra["target_user"] == str(target.user_id)
+
+    # 3. Test Deactivate User Logging
+    client.post(f"{ADMIN_USERS_URL}/{target.user_id}/deactivate", headers=headers)
+    deactivate_log = AuditLog.query.filter_by(event_type="admin_user_deactivated", user_id=admin.user_id).first()
+    assert deactivate_log is not None
+    assert deactivate_log.extra["target_user"] == str(target.user_id)

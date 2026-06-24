@@ -7,9 +7,9 @@ from app.extensions import limiter
 from app.models.audit_log import AuditLog
 from app.models.resume import Resume
 
-LOGIN_URL = "/auth/login"
-VERIFY_2FA_URL = "/auth/verify-2fa"
-RESUMES_URL = "/resumes"
+LOGIN_URL = "/api/auth/login"
+VERIFY_2FA_URL = "/api/auth/verify-2fa"
+RESUMES_URL = "/api/resumes"
 
 SAMPLE_CONTENT = {
     "personal_info": {
