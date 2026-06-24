@@ -17,6 +17,14 @@ export default function Login() {
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const handleRedirect = (user) => {
+    if (user && user.role === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -30,7 +38,7 @@ export default function Login() {
         return;
       }
       login(res.data.user);
-      navigate('/dashboard');
+      handleRedirect(res.data.user);
     } catch (err) {
       const data = err.response?.data;
       setError(data?.message || 'Login failed.');
@@ -47,7 +55,7 @@ export default function Login() {
     try {
       const res = await verifyTwoFactor({ challenge_token: challenge, totp_code: totpCode });
       login(res.data.user);
-      navigate('/dashboard');
+      handleRedirect(res.data.user);
     } catch (err) {
       const data = err.response?.data;
       setError(data?.message || 'Two-factor verification failed.');

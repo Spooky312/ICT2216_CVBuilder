@@ -19,7 +19,7 @@ from app.utils.totp import (
 )
 from app.utils.two_factor import create_two_factor_challenge, verify_two_factor_challenge
 
-auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 register_schema = RegisterSchema()
 login_schema = LoginSchema()

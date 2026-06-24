@@ -20,7 +20,7 @@ from app.services.template_service import (
 from app.utils.audit import log_event
 from app.utils.helpers import current_user_id, paginate_response, parse_uuid
 
-admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
+admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 _F = TypeVar("_F", bound=Callable[..., tuple[Response, int]])
 
