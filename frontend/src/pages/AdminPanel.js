@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   adminListUsers, adminLockUser, adminUnlockUser, adminDeactivateUser, adminDeleteUser,
   adminGetAuditLog, adminListTemplates, adminCreateTemplate, adminUploadTemplate, adminUpdateTemplate,
+  adminDeleteTemplate
 } from '../services/api';
 import Spinner from '../components/common/Spinner';
 import Pagination from '../components/common/Pagination';
@@ -424,6 +425,20 @@ function TemplatesTab({ templates, setTemplates }) {
       setSaving(null);
     }
   };
+  
+  const deleteTemplate = async (t) => {
+    if (!window.confirm(`Permanently delete the '${t.name}' template? This cannot be undone.`)) return;
+    setSaving(t.id);
+    try {
+      await adminDeleteTemplate(t.id);
+      setTemplates((prev) => prev.filter((x) => x.id !== t.id));
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Failed to delete template due to a server error.';
+      alert(`Error: ${msg}`);
+    } finally {
+      setSaving(null);
+    }
+  };
 
   return (
     <div className="admin-tab-content">
@@ -517,6 +532,15 @@ function TemplatesTab({ templates, setTemplates }) {
                 <button className="btn-link-sm" onClick={() => startEdit(t)}>Edit</button>
                 <button className={t.active ? 'btn-danger-sm' : 'btn-secondary-sm'} onClick={() => toggleActive(t)} disabled={saving === t.id}>
                   {saving === t.id ? <Spinner size={14} /> : t.active ? 'Deactivate' : 'Activate'}
+                </button>
+                <button 
+                  className="btn-danger-sm" 
+                  onClick={() => deleteTemplate(t)} 
+                  disabled={saving === t.id || sourceOptions.includes(t.id)} 
+                  style={{ marginLeft: '8px' }}
+                  title={sourceOptions.includes(t.id) ? "Core templates cannot be deleted" : "Delete template"}
+                >
+                  Delete
                 </button>
               </div>
             </div>

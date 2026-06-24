@@ -12,6 +12,7 @@ from flask_jwt_extended import jwt_required
 from app.extensions import db
 from app.models.user import User
 from app.models.audit_log import AuditLog
+from app.models.resume import Resume
 from app.models.resume_template import ResumeTemplate
 from app.services.template_service import (
     BUILTIN_TEMPLATE_FILES, create_template, create_uploaded_template, ensure_default_templates,
@@ -332,3 +333,31 @@ def update_template(template_id: str) -> tuple[Response, int]:
     log_event("admin_template_updated", user_id=current_user_id(),
               metadata={"template_id": template.template_id})
     return jsonify(template.to_dict()), 200
+
+@admin_bp.route("/templates/<template_id>", methods=["DELETE"])
+@admin_required
+def delete_template(template_id: str) -> tuple[Response, int]:
+    ensure_default_templates()
+    template = db.session.get(ResumeTemplate, normalise_template_id(template_id))
+    if not template:
+        return jsonify({"message": "Template not found."}), 404
+
+    # Guardrail 1: Prevent deletion of core system templates
+    if template.template_id in BUILTIN_TEMPLATE_FILES:
+        log_event("admin_delete_core_template_attempt", user_id=current_user_id(), metadata={"template_id": template.template_id})
+        return jsonify({"message": "Cannot delete core built-in templates. You can only deactivate them."}), 403
+
+    # Guardrail 2: Referential Integrity Check (Prevent breaking user resumes)
+    usage_count = Resume.query.filter_by(template_id=template.template_id).count()
+    if usage_count > 0:
+        log_event("admin_delete_active_template_attempt", user_id=current_user_id(), metadata={"template_id": template.template_id, "affected_resumes": usage_count})
+        return jsonify({
+            "message": f"Cannot delete: {usage_count} resume(s) are currently using this template. Please deactivate it instead so existing users don't lose their data."
+        }), 409
+
+    # If it passes all guardrails, it is an orphaned/unused custom template and is safe to delete
+    db.session.delete(template)
+    db.session.commit()
+    log_event("admin_template_deleted", user_id=current_user_id(),
+              metadata={"template_id": template.template_id})
+    return jsonify({"message": "Template deleted."}), 200
