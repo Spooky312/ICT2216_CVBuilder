@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app.extensions import db
 
 
@@ -25,3 +25,12 @@ class AuditLog(db.Model):
             "occurred_at": self.occurred_at.isoformat(),
             "metadata": self.extra,
         }
+    
+    @classmethod
+    def cleanup_old_logs(cls, days: int = 90) -> int:
+        """Deletes audit logs older than the specified number of days."""
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        # Using synchronize_session=False makes bulk deletes much faster and safer in SQLAlchemy
+        deleted_count = cls.query.filter(cls.occurred_at < cutoff_date).delete(synchronize_session=False)
+        db.session.commit()
+        return deleted_count

@@ -111,11 +111,19 @@ def login() -> tuple[Response, int]:
 
     if not user.check_password(data["password"]):
         record_failed_login(user)
+        failed = user.failed_logins
+        remaining = max(0, 5 - failed)
         log_event("login_failed", user_id=user.user_id,
-                  metadata={"failed_count": user.failed_logins})
+                  metadata={"failed_count": failed})
+        
+        msg = "Invalid credentials."
+        if remaining == 0:
+            msg = "Invalid credentials. Account is now locked."
+            
         return jsonify({
-            "message": "Invalid credentials.",
-            "show_captcha": user.failed_logins >= 3,
+            "message": msg,
+            "show_captcha": failed >= 3,
+            "attempts_remaining": remaining
         }), 401
 
     if not user.is_active:
@@ -162,11 +170,19 @@ def verify_2fa() -> tuple[Response, int]:
     secret = decrypt_totp_secret(user.totp_secret)
     if not verify_totp_code(secret, data["totp_code"]):
         record_failed_login(user)
+        failed = user.failed_logins
+        remaining = max(0, 5 - failed)
         log_event("login_totp_failed", user_id=user.user_id,
-                  metadata={"failed_count": user.failed_logins})
+                  metadata={"failed_count": failed})
+        
+        msg = "Invalid authenticator code."
+        if remaining == 0:
+            msg = "Invalid authenticator code. Account is now locked."
+            
         return jsonify({
-            "message": "Invalid authenticator code.",
-            "show_captcha": user.failed_logins >= 3,
+            "message": msg,
+            "show_captcha": failed >= 3,
+            "attempts_remaining": remaining
         }), 401
 
     return _issue_login_response(user)

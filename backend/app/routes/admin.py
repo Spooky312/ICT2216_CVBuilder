@@ -203,6 +203,28 @@ def get_audit_log() -> tuple[Response, int]:
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
     return paginate_response("logs", paginated, page, lambda e: e.to_dict())
 
+@admin_bp.route("/audit-log/cleanup", methods=["DELETE"])
+@admin_required
+def cleanup_audit_logs() -> tuple[Response, int]:
+    try:
+        days = int(request.args.get("days", 90))
+    except ValueError:
+        return jsonify({"message": "Days parameter must be an integer."}), 400
+
+    # Security guardrail: Require at least 90 days of retention
+    if days < 90:
+        return jsonify({"message": "Security policy requires retaining at least 90 days of audit logs."}), 403
+
+    deleted_count = AuditLog.cleanup_old_logs(days)
+
+    # Audit the cleanup itself!
+    log_event("admin_audit_log_cleanup", user_id=current_user_id(),
+              metadata={"days_threshold": days, "records_deleted": deleted_count})
+
+    return jsonify({
+        "message": f"Successfully deleted {deleted_count} old audit logs.",
+        "deleted_count": deleted_count
+    }), 200
 
 @admin_bp.route("/templates", methods=["GET"])
 @admin_required

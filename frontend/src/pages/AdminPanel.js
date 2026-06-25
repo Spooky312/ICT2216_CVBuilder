@@ -111,7 +111,18 @@ function UsersTab({ users, setUsers, onRefresh }) {
   };
 
   const handleDelete = async (user) => {
-    if (!window.confirm(`Permanently delete ${user.full_name} and all their resumes?`)) return;
+    // Stronger security confirmation flow
+    const confirmation = window.prompt(
+      `DANGER: You are about to permanently delete ${user.full_name} and all their data.\n\nType their exact email (${user.email}) to confirm:`
+    );
+    
+    if (confirmation !== user.email) {
+      if (confirmation !== null) {
+        alert("Email did not match. Deletion cancelled to prevent accidental data loss.");
+      }
+      return;
+    }
+
     setActionId(user.user_id);
     try {
       await adminDeleteUser(user.user_id);
