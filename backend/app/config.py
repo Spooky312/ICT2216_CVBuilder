@@ -28,6 +28,7 @@ class Config:
 
     MAX_RESUMES_PER_USER = 10
     PDF_GENERATION_TIMEOUT = 30
+    PDF_WORKER_MEMORY_MB = int(os.environ.get("PDF_WORKER_MEMORY_MB", "512"))
 
     BCRYPT_LOG_ROUNDS = 12
 
@@ -56,4 +57,3 @@ config_by_name = {
     "production": ProductionConfig,
     "testing": TestingConfig,
 }
-

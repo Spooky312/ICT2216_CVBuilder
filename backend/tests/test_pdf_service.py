@@ -45,31 +45,24 @@ def test_uploaded_template_html_is_used_for_pdf_generation(db, monkeypatch):
     db.session.commit()
     calls = {}
 
-    def fake_render(template_src, context):
+    def fake_worker(template_src, content_json, timeout_seconds):
         calls["template_src"] = template_src
-        calls["context"] = context
-        return "<html><body>Alice</body></html>"
+        calls["content_json"] = content_json
+        calls["timeout_seconds"] = timeout_seconds
+        return b"%PDF uploaded"
 
-    class FakeHTML:
-        def __init__(self, string):
-            calls["html"] = string
-
-        def write_pdf(self):
-            return b"%PDF uploaded"
-
-    monkeypatch.setattr(pdf_service, "_safe_render", fake_render)
-    monkeypatch.setattr(pdf_service, "HTML", FakeHTML)
+    monkeypatch.setattr(pdf_service, "_render_uploaded_pdf_in_worker", fake_worker)
 
     result = pdf_service.generate_pdf_from_content(
         "custom-html",
         {"personal_info": {"full_name": "Alice"}},
-        timeout_seconds=0,
+        timeout_seconds=5,
     )
 
     assert result == b"%PDF uploaded"
     assert calls["template_src"] == template.html_content
-    assert calls["context"] == {"resume": {"personal_info": {"full_name": "Alice"}}}
-    assert calls["html"] == "<html><body>Alice</body></html>"
+    assert calls["content_json"] == {"personal_info": {"full_name": "Alice"}}
+    assert calls["timeout_seconds"] == 5
 
 def test_empty_skills_do_not_render_skills_section(monkeypatch):
     rendered = []
