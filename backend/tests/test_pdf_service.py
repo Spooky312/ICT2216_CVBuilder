@@ -70,3 +70,42 @@ def test_uploaded_template_html_is_used_for_pdf_generation(db, monkeypatch):
     assert calls["template_src"] == template.html_content
     assert calls["context"] == {"resume": {"personal_info": {"full_name": "Alice"}}}
     assert calls["html"] == "<html><body>Alice</body></html>"
+
+def test_empty_skills_do_not_render_skills_section(monkeypatch):
+    rendered = []
+
+    class FakeHTML:
+        def __init__(self, string):
+            rendered.append(string)
+
+        def write_pdf(self):
+            return b"%PDF rendered"
+
+    monkeypatch.setattr(pdf_service, "HTML", FakeHTML)
+
+    pdf_service.generate_pdf_from_content(
+        "modern",
+        {
+            "personal_info": {"full_name": "Alice", "email": "alice@example.com"},
+            "education": [],
+            "experience": [],
+            "projects": [],
+            "skills": {"technical": [], "soft": [], "languages": [], "certifications": []},
+        },
+        timeout_seconds=0,
+    )
+    assert "<h2>Skills</h2>" not in rendered[-1]
+
+    pdf_service.generate_pdf_from_content(
+        "modern",
+        {
+            "personal_info": {"full_name": "Alice", "email": "alice@example.com"},
+            "education": [],
+            "experience": [],
+            "projects": [],
+            "skills": {"technical": ["Python"], "soft": [], "languages": [], "certifications": []},
+        },
+        timeout_seconds=0,
+    )
+    assert "<h2>Skills</h2>" in rendered[-1]
+    assert "Python" in rendered[-1]
