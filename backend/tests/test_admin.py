@@ -261,19 +261,25 @@ def test_admin_can_upload_template_and_user_can_select_it(client, db):
     assert create_resp.status_code == 201
 
 
-def test_admin_template_upload_rejects_unsafe_html(client, db):
+@pytest.mark.parametrize("html", [
+    b"<html><script>alert(1)</script>{{ resume.personal_info.full_name }}</html>",
+    b"<html><body><img src='file:///etc/passwd'>{{ resume.personal_info.full_name }}</body></html>",
+    b"<html><body><p onclick='alert(1)'>{{ resume.personal_info.full_name }}</p></body></html>",
+    b"<html><style>.x{background:url(https://evil.test/a.png)}</style><body>{{ resume.personal_info.full_name }}</body></html>",
+    b"<html><body><iframe>{{ resume.personal_info.full_name }}</iframe></body></html>",
+])
+def test_admin_template_upload_rejects_unsafe_html(client, db, html):
     admin = _create_user("admin@example.com", role="admin")
     headers = _login(client, admin)
 
     resp = client.post(f"{ADMIN_TEMPLATES_URL}/upload", headers=headers, data={
         "template_id": "unsafe-html",
         "name": "Unsafe HTML",
-        "template_file": (BytesIO(b"<html><script>alert(1)</script>{{ resume.personal_info.full_name }}</html>"), "unsafe.html"),
+        "template_file": (BytesIO(html), "unsafe.html"),
     }, content_type="multipart/form-data")
 
     assert resp.status_code == 422
     assert "template_file" in resp.get_json()["errors"]
-
 def test_deactivated_template_is_not_selectable_for_new_resumes(client, db):
     admin = _create_user("admin@example.com", role="admin")
     user = _create_user("user@example.com")

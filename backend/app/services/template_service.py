@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html.parser import HTMLParser
 import os
 import re
 
@@ -28,13 +29,22 @@ BUILTIN_TEMPLATE_FILES: set[str] = set(DEFAULT_TEMPLATE_METADATA)
 _TEMPLATE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,49}$")
 ALLOWED_UPLOAD_EXTENSIONS = {".html", ".htm"}
 MAX_TEMPLATE_UPLOAD_BYTES = 100_000
-_UNSAFE_TEMPLATE_PATTERNS = (
-    re.compile(r"<\s*script", re.IGNORECASE),
-    re.compile(r"javascript\s*:", re.IGNORECASE),
-    re.compile(r"\b(?:https?|file)://", re.IGNORECASE),
-    re.compile(r"@import", re.IGNORECASE),
-    re.compile(r"url\s*\(", re.IGNORECASE),
-)
+_ALLOWED_TEMPLATE_TAGS = {
+    "html", "head", "body", "meta", "title", "style",
+    "div", "span", "p", "br", "hr", "strong", "b", "em", "i", "u", "small",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "ul", "ol", "li", "dl", "dt", "dd",
+    "table", "thead", "tbody", "tfoot", "tr", "th", "td", "colgroup", "col",
+    "section", "article", "header", "footer", "main",
+}
+_ALLOWED_TEMPLATE_ATTRS = {
+    "class", "id", "style", "colspan", "rowspan", "scope", "align", "valign",
+    "width", "height", "lang", "dir", "charset",
+}
+_RESOURCE_ATTRS = {
+    "src", "srcset", "href", "xlink:href", "action", "formaction", "poster", "data",
+    "background", "cite", "longdesc", "profile", "manifest",
+}
 
 
 def normalise_template_id(value: str) -> str:
@@ -110,6 +120,66 @@ def create_template(
     return template
 
 
+class _TemplateAllowlistParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.errors: list[str] = []
+        self._style_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._validate_tag(tag, attrs)
+        if tag.lower() == "style":
+            self._style_depth += 1
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._validate_tag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "style" and self._style_depth:
+            self._style_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._style_depth:
+            self._validate_css(data)
+
+    def _validate_tag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        clean_tag = tag.lower()
+        if clean_tag not in _ALLOWED_TEMPLATE_TAGS:
+            self._add_error(f"Tag <{tag}> is not allowed.")
+            return
+
+        for raw_name, value in attrs:
+            name = raw_name.lower()
+            if name.startswith("on"):
+                self._add_error("Event handler attributes are not allowed.")
+            elif name in _RESOURCE_ATTRS:
+                self._add_error(f"Resource-loading attribute '{raw_name}' is not allowed.")
+            elif name not in _ALLOWED_TEMPLATE_ATTRS and not name.startswith("aria-"):
+                self._add_error(f"Attribute '{raw_name}' is not allowed.")
+
+            if value and name == "style":
+                self._validate_css(value)
+
+    def _validate_css(self, css: str) -> None:
+        compact = "".join(css.lower().split())
+        if "@import" in compact or "url(" in compact or "expression(" in compact:
+            self._add_error("CSS cannot import or reference external resources.")
+
+    def _add_error(self, message: str) -> None:
+        if message not in self.errors:
+            self.errors.append(message)
+
+
+def _validate_template_html_allowlist(html_content: str) -> list[str]:
+    parser = _TemplateAllowlistParser()
+    try:
+        parser.feed(html_content)
+        parser.close()
+    except Exception:
+        return ["Template HTML could not be parsed safely."]
+    return parser.errors
+
+
 def validate_uploaded_template(filename: str, raw_content: bytes) -> tuple[str | None, dict[str, list[str]]]:
     errors: dict[str, list[str]] = {}
     _, ext = os.path.splitext(filename.lower())
@@ -133,10 +203,10 @@ def validate_uploaded_template(filename: str, raw_content: bytes) -> tuple[str |
         errors.setdefault("template_file", []).append("Template file cannot be empty.")
     if "{{" not in stripped and "{%" not in stripped:
         errors.setdefault("template_file", []).append("Template must contain Jinja placeholders for resume data.")
-    for pattern in _UNSAFE_TEMPLATE_PATTERNS:
-        if pattern.search(stripped):
-            errors.setdefault("template_file", []).append("Template cannot contain scripts or external resource references.")
-            break
+
+    allowlist_errors = _validate_template_html_allowlist(stripped) if stripped else []
+    if allowlist_errors:
+        errors.setdefault("template_file", []).extend(allowlist_errors)
 
     return (None, errors) if errors else (stripped, {})
 

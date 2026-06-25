@@ -109,3 +109,20 @@ def test_empty_skills_do_not_render_skills_section(monkeypatch):
     )
     assert "<h2>Skills</h2>" in rendered[-1]
     assert "Python" in rendered[-1]
+
+def test_pdf_timeout_covers_jinja_rendering(monkeypatch):
+    def slow_render(template_src, context):
+        raise pdf_service._PDFTimeout()
+
+    monkeypatch.setattr(pdf_service, "_safe_render", slow_render)
+
+    try:
+        pdf_service.generate_pdf_from_content(
+            "modern",
+            {"personal_info": {"full_name": "Alice"}},
+            timeout_seconds=1,
+        )
+    except TimeoutError as exc:
+        assert "PDF generation exceeded" in str(exc)
+    else:
+        raise AssertionError("Expected TimeoutError")

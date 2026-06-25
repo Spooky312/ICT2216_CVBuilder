@@ -18,6 +18,7 @@ _JINJA_ENV = SandboxedEnvironment(
     loader=BaseLoader(),
     autoescape=select_autoescape(["html", "xml"]),
 )
+_JINJA_ENV.globals.clear()
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _TEMPLATE_DIR = os.path.normpath(os.path.join(_HERE, "..", "templates", "resumes"))
@@ -52,6 +53,11 @@ def _safe_render(template_src: str, context: dict[str, Any]) -> str:
     return tmpl.render(**context)
 
 
+def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
+    html_content = _safe_render(template_src, {"resume": content_json})
+    return HTML(string=html_content).write_pdf()
+
+
 def generate_pdf_from_content(
     template_id: str,
     content_json: dict[str, Any],
@@ -59,8 +65,6 @@ def generate_pdf_from_content(
 ) -> bytes:
     """Render validated resume content without requiring a persisted model."""
     template_src = _load_template(template_id)
-    html_content = _safe_render(template_src, {"resume": content_json})
-    html_obj = HTML(string=html_content)
 
     if _HAS_SIGALRM and timeout_seconds > 0:
         def _handle_alarm(signum: int, frame: types.FrameType | None) -> None:
@@ -69,11 +73,11 @@ def generate_pdf_from_content(
         try:
             old_handler = signal.signal(signal.SIGALRM, _handle_alarm)
         except ValueError:
-            return html_obj.write_pdf()
+            return _render_pdf(template_src, content_json)
 
         signal.alarm(timeout_seconds)
         try:
-            pdf_bytes = html_obj.write_pdf()
+            return _render_pdf(template_src, content_json)
         except _PDFTimeout:
             raise TimeoutError(
                 f"PDF generation exceeded the {timeout_seconds}s limit."
@@ -81,10 +85,8 @@ def generate_pdf_from_content(
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, old_handler)
-    else:
-        pdf_bytes = html_obj.write_pdf()
 
-    return pdf_bytes
+    return _render_pdf(template_src, content_json)
 
 
 def generate_pdf(resume: Resume, timeout_seconds: int = 30) -> bytes:
