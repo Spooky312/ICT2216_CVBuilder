@@ -10,7 +10,6 @@ on:
 permissions:
   actions: read
   contents: read
-  security-events: write
 
 jobs:
   backend-tests:
@@ -162,6 +161,10 @@ jobs:
   dependency-check:
     name: OWASP Dependency-Check
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout repository
@@ -211,6 +214,11 @@ jobs:
   codeql:
     name: CodeQL Analysis (${{ matrix.language }})
     runs-on: ubuntu-latest
+    if: ${{ github.event.repository.private == false }}
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
 
     strategy:
       fail-fast: false
@@ -311,7 +319,19 @@ jobs:
       - dependency-check
       - codeql
       - sonarqube
-    if: ${{ success() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    if: >-
+      ${{
+        always() &&
+        github.ref == 'refs/heads/main' &&
+        github.event_name != 'pull_request' &&
+        needs.backend-tests.result == 'success' &&
+        needs.frontend-build.result == 'success' &&
+        needs.python-static-analysis.result == 'success' &&
+        needs.react-static-analysis.result == 'success' &&
+        needs.dependency-check.result == 'success' &&
+        needs.sonarqube.result == 'success' &&
+        needs.codeql.result == 'success'
+      }}
 
     steps:
       - name: Deploy to EC2 over SSH
