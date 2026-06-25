@@ -207,7 +207,7 @@ jobs:
 
       - name: Upload Dependency-Check SARIF
         uses: github/codeql-action/upload-sarif@v4
-        if: ${{ always() && github.event.repository.private == false && hashFiles('reports/dependency-check/dependency-check-report.sarif') != '' }}
+        if: ${{ always() && (github.event.repository.private == false || vars.ENABLE_CODE_SCANNING == 'true') && hashFiles('reports/dependency-check/dependency-check-report.sarif') != '' }}
         with:
           sarif_file: reports/dependency-check/dependency-check-report.sarif
 
@@ -239,9 +239,39 @@ jobs:
         with:
           category: /language:${{ matrix.language }}
 
+  sonarqube-config:
+    name: SonarQube Configuration
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+    outputs:
+      configured: ${{ steps.detect.outputs.configured }}
+
+    steps:
+      - name: Detect SonarQube configuration
+        id: detect
+        run: |
+          if [ -n "$SONAR_TOKEN" ] && [ -n "$SONAR_HOST_URL" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "SonarQube configuration detected."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "SonarQube scan will be skipped because SONAR_TOKEN and/or SONAR_HOST_URL is not configured."
+            echo "Add repository secrets SONAR_TOKEN and SONAR_HOST_URL to enable analysis."
+          fi
+
+      - name: Require SonarQube configuration before deploy
+        if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.detect.outputs.configured != 'true' }}
+        run: |
+          echo "SONAR_TOKEN and SONAR_HOST_URL must be configured before deploying from main."
+          exit 1
+
   sonarqube:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
+    needs: sonarqube-config
+    if: ${{ needs.sonarqube-config.outputs.configured == 'true' }}
 
     env:
       FLASK_ENV: testing
@@ -289,20 +319,7 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Require SonarQube configuration before deploy
-        if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '') }}
-        run: |
-          echo "SONAR_TOKEN and SONAR_HOST_URL must be configured before deploying from main."
-          exit 1
-
-      - name: Report skipped SonarQube scan
-        if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
-        run: |
-          echo "SonarQube scan skipped because SONAR_TOKEN and/or SONAR_HOST_URL is not configured."
-          echo "Add repository secrets SONAR_TOKEN and SONAR_HOST_URL to enable analysis."
-
       - name: SonarQube Scan
-        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
@@ -318,6 +335,7 @@ jobs:
       - react-static-analysis
       - dependency-check
       - codeql
+      - sonarqube-config
       - sonarqube
     if: >-
       ${{
@@ -329,8 +347,12 @@ jobs:
         needs.python-static-analysis.result == 'success' &&
         needs.react-static-analysis.result == 'success' &&
         needs.dependency-check.result == 'success' &&
+        needs.sonarqube-config.result == 'success' &&
         needs.sonarqube.result == 'success' &&
-        needs.codeql.result == 'success'
+        (
+          needs.codeql.result == 'success' ||
+          (github.event.repository.private == true && needs.codeql.result == 'skipped')
+        )
       }}
 
     steps:
