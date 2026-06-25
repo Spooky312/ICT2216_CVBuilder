@@ -50,6 +50,12 @@ class RegisterSchema(Schema):
 class LoginSchema(Schema):
     email = fields.Email(required=True)
     password = _password_confirm_field()
+    # Optional: only supplied once the server has demanded a CAPTCHA (after
+    # repeated failures). Verified server-side in the login route.
+    captcha_token = fields.Str(required=False, load_only=True,
+                               validate=validate.Length(max=2000))
+    captcha_answer = fields.Str(required=False, load_only=True,
+                                validate=validate.Length(max=32))
 
 
 class VerifyTwoFactorSchema(Schema):

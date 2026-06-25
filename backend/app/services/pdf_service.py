@@ -14,6 +14,7 @@ from flask import current_app, has_app_context
 from jinja2 import BaseLoader, select_autoescape
 from jinja2.sandbox import SandboxedEnvironment
 from weasyprint import HTML
+from weasyprint.urls import default_url_fetcher
 
 from app.services.template_service import BUILTIN_TEMPLATE_FILES, get_template
 
@@ -61,6 +62,21 @@ def _load_template(template_id: str) -> _TemplateSource:
         return _TemplateSource(html=f.read(), is_uploaded=False)
 
 
+def _blocking_url_fetcher(url: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    """Refuse to fetch any external/local resource while rendering a PDF.
+
+    Templates are already validated to strip resource-loading attributes and
+    CSS ``url()``/``@import`` (see template_service), but this is defence in
+    depth: even if a Jinja value smuggled a ``url()`` into a CSS context,
+    WeasyPrint must never reach out over http(s) or read ``file://`` paths
+    (SSRF / local-file disclosure). Inline ``data:`` URIs stay allowed so
+    embedded images/fonts keep working.
+    """
+    if url.startswith("data:"):
+        return default_url_fetcher(url, *args, **kwargs)
+    raise ValueError(f"Blocked external resource during PDF rendering: {url[:80]!r}")
+
+
 def _safe_render(template_src: str, context: dict[str, Any]) -> str:
     tmpl = _JINJA_ENV.from_string(template_src)
     return tmpl.render(**context)
@@ -68,7 +84,7 @@ def _safe_render(template_src: str, context: dict[str, Any]) -> str:
 
 def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
     html_content = _safe_render(template_src, {"resume": content_json})
-    return HTML(string=html_content).write_pdf()
+    return HTML(string=html_content, url_fetcher=_blocking_url_fetcher).write_pdf()
 
 
 def _pdf_worker_memory_mb() -> int:

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { register } from '../../services/api';
-import TotpQrCode from './TotpQrCode';
 
 const PASSWORD_RULES = [
   { test: (p) => p.length >= 12, label: 'At least 12 characters' },
@@ -14,7 +13,7 @@ const PASSWORD_RULES = [
 export default function Register() {
   const [form, setForm] = useState({ full_name: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
-  const [setup, setSetup] = useState(null);
+  const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -24,8 +23,8 @@ export default function Register() {
     setErrors({});
     setLoading(true);
     try {
-      const res = await register(form);
-      setSetup({ uri: res.data.totp_uri });
+      await register(form);
+      setDone(true);
     } catch (err) {
       const data = err.response?.data;
       if (data?.errors) setErrors(data.errors);
@@ -35,14 +34,14 @@ export default function Register() {
     }
   };
 
-  if (setup) {
+  if (done) {
     return (
       <div className="auth-card">
-        <h2>Set up two-factor authentication</h2>
+        <h2>Account created</h2>
         <p className="text-muted">
-          Add this account to your authenticator app, then use the generated code when logging in.
+          Your account is ready. Log in to set up two-factor authentication in your
+          authenticator app and start building your resume.
         </p>
-        <TotpQrCode uri={setup.uri} />
         <Link to="/login" className="btn-primary" style={{ marginTop: '1rem', display: 'inline-block' }}>
           Go to Login
         </Link>

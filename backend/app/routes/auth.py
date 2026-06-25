@@ -10,6 +10,7 @@ from app.extensions import db, limiter
 from app.models.user import User
 from app.schemas.user_schema import RegisterSchema, LoginSchema, VerifyTwoFactorSchema
 from app.utils.audit import log_event
+from app.utils.captcha import generate_captcha, verify_captcha
 from app.utils.helpers import current_user_id, load_or_422
 from app.utils.security import record_failed_login, reset_failed_logins
 from app.utils.token_blocklist import revoke_jwt_payloads
@@ -24,6 +25,28 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 register_schema = RegisterSchema()
 login_schema = LoginSchema()
 verify_2fa_schema = VerifyTwoFactorSchema()
+
+# Identical for new and already-registered emails so registration can't be used
+# to enumerate accounts. 2FA enrolment happens at first login.
+_REGISTER_OK_MESSAGE = "Account created. Log in to finish setting up two-factor authentication."
+
+# After this many consecutive failed logins the account must solve a
+# server-issued CAPTCHA on every further attempt. Kept in sync with the
+# show_captcha flag returned to the client so the UI and the server gate agree.
+_CAPTCHA_THRESHOLD = 3
+
+
+def _captcha_required(user: User) -> bool:
+    return user.failed_logins >= _CAPTCHA_THRESHOLD
+
+
+def _equalize_password_timing(password: str) -> None:
+    """Spend the same time hashing as a real signup/login would.
+
+    Prevents a timing side-channel from revealing whether an email exists when
+    we short-circuit (duplicate registration / unknown-user login).
+    """
+    User().set_password(password)
 
 
 def _totp_setup_payload(user: User, secret: str) -> dict[str, str | bool]:
@@ -69,14 +92,20 @@ def register() -> tuple[Response, int]:
     if err:
         return err
 
-    if User.query.filter_by(email=data["email"].lower()).first():
-        return jsonify({"message": "Email already registered."}), 409
+    email = data["email"].lower()
+    if User.query.filter_by(email=email).first():
+        # Don't reveal that the email is already registered (anti-enumeration).
+        # Match the work/response of a real signup, then return the same body.
+        _equalize_password_timing(data["password"])
+        log_event("register_existing_email", metadata={"email": email})
+        return jsonify({"message": _REGISTER_OK_MESSAGE}), 201
 
-    secret = generate_totp_secret()
+    # TOTP enrolment is deferred to first login (see _ensure_totp_setup), so
+    # registration never has to hand back a secret and stays indistinguishable
+    # from the duplicate-email case above.
     user = User(
-        email=data["email"].lower(),
+        email=email,
         full_name=data["full_name"],
-        totp_secret=encrypt_totp_secret(secret),
         totp_enabled=True,
     )
     user.set_password(data["password"])
@@ -84,10 +113,16 @@ def register() -> tuple[Response, int]:
     db.session.commit()
 
     log_event("user_registered", user_id=user.user_id, metadata={"totp_enabled": 1})
-    return jsonify({
-        "message": "Account created. Set up two-factor authentication before logging in.",
-        **_totp_setup_payload(user, secret),
-    }), 201
+    return jsonify({"message": _REGISTER_OK_MESSAGE}), 201
+
+
+@auth_bp.route("/captcha", methods=["GET"])
+@limiter.limit("30 per 15 minutes")
+def captcha() -> tuple[Response, int]:
+    """Issue a fresh CAPTCHA challenge for the client to solve. The answer is
+    sealed inside the signed token, never returned in the clear."""
+    token, question = generate_captcha()
+    return jsonify({"captcha_token": token, "question": question}), 200
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -102,28 +137,47 @@ def login() -> tuple[Response, int]:
     user = User.query.filter_by(email=data["email"].lower()).first()
 
     if not user:
+        # Equalize timing AND response body with a real account's first failed
+        # attempt so login can't reveal which emails are registered.
+        # NOTE: keep in sync with the wrong-password response shape below.
+        _equalize_password_timing(data["password"])
         log_event("login_failed_unknown", metadata={"email": data["email"]})
-        return jsonify({"message": "Invalid credentials."}), 401
+        return jsonify({
+            "message": "Invalid credentials.",
+            "show_captcha": False,
+        }), 401
 
     if user.is_locked():
         log_event("login_blocked_locked", user_id=user.user_id)
         return jsonify({"message": "Account temporarily locked. Try again later."}), 429
 
+    # Once enough failures have piled up, every further attempt must carry a
+    # valid server-issued CAPTCHA. Enforced BEFORE the password check so an
+    # attacker can't keep guessing passwords without solving a fresh challenge.
+    # A failed/absent CAPTCHA does not count as a password failure, so it can't
+    # be abused to lock another user's account.
+    if _captcha_required(user) and not verify_captcha(
+        data.get("captcha_token"), data.get("captcha_answer")
+    ):
+        log_event("login_captcha_failed", user_id=user.user_id)
+        return jsonify({
+            "message": "Please complete the CAPTCHA to continue.",
+            "show_captcha": True,
+        }), 400
+
     if not user.check_password(data["password"]):
         record_failed_login(user)
         failed = user.failed_logins
-        remaining = max(0, 5 - failed)
         log_event("login_failed", user_id=user.user_id,
                   metadata={"failed_count": failed})
-        
+
         msg = "Invalid credentials."
-        if remaining == 0:
+        if user.is_locked():
             msg = "Invalid credentials. Account is now locked."
-            
+
         return jsonify({
             "message": msg,
-            "show_captcha": failed >= 3,
-            "attempts_remaining": remaining
+            "show_captcha": failed >= _CAPTCHA_THRESHOLD,
         }), 401
 
     if not user.is_active:
@@ -171,18 +225,16 @@ def verify_2fa() -> tuple[Response, int]:
     if not verify_totp_code(secret, data["totp_code"]):
         record_failed_login(user)
         failed = user.failed_logins
-        remaining = max(0, 5 - failed)
         log_event("login_totp_failed", user_id=user.user_id,
                   metadata={"failed_count": failed})
-        
+
         msg = "Invalid authenticator code."
-        if remaining == 0:
+        if user.is_locked():
             msg = "Invalid authenticator code. Account is now locked."
-            
+
         return jsonify({
             "message": msg,
-            "show_captcha": failed >= 3,
-            "attempts_remaining": remaining
+            "show_captcha": failed >= _CAPTCHA_THRESHOLD,
         }), 401
 
     return _issue_login_response(user)

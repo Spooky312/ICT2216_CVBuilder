@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login as apiLogin, verifyTwoFactor } from '../../services/api';
+import { login as apiLogin, verifyTwoFactor, getCaptcha } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import TotpQrCode from './TotpQrCode';
 
@@ -11,8 +11,8 @@ export default function Login() {
   const [setup, setSetup] = useState(null);
   const [error, setError] = useState('');
   const [showCaptcha, setShowCaptcha] = useState(false);
-  const [captchaSolved, setCaptchaSolved] = useState(false);
-  const [attemptsRemaining, setAttemptsRemaining] = useState(null);
+  const [captcha, setCaptcha] = useState(null); // { token, question } from the server
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -27,17 +27,33 @@ export default function Login() {
     }
   };
 
+  // Fetch a fresh server-issued challenge. The answer never leaves the server,
+  // so the only way through is to actually solve the question shown here.
+  const loadCaptcha = async () => {
+    try {
+      const res = await getCaptcha();
+      setCaptcha({ token: res.data.captcha_token, question: res.data.question });
+    } catch {
+      setCaptcha(null);
+    }
+    setCaptchaAnswer('');
+  };
+
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
-    if (showCaptcha && !captchaSolved) {
-      setError('Please complete the CAPTCHA to continue.');
+    if (showCaptcha && !captchaAnswer.trim()) {
+      setError('Please solve the CAPTCHA to continue.');
       return;
     }
     setError('');
-    setAttemptsRemaining(null);
     setLoading(true);
     try {
-      const res = await apiLogin(form);
+      const payload = { ...form };
+      if (showCaptcha && captcha) {
+        payload.captcha_token = captcha.token;
+        payload.captcha_answer = captchaAnswer;
+      }
+      const res = await apiLogin(payload);
       if (res.data.requires_2fa) {
         setChallenge(res.data.challenge_token);
         setSetup(res.data.totp_uri ? { uri: res.data.totp_uri } : null);
@@ -49,8 +65,12 @@ export default function Login() {
     } catch (err) {
       const data = err.response?.data;
       setError(data?.message || 'Login failed.');
-      if (data?.show_captcha) setShowCaptcha(true);
-      if (data?.attempts_remaining !== undefined) setAttemptsRemaining(data.attempts_remaining);
+      // A consumed/expired challenge can't be reused, so always pull a fresh
+      // one whenever the server still wants a CAPTCHA.
+      if (data?.show_captcha) {
+        setShowCaptcha(true);
+        await loadCaptcha();
+      }
     } finally {
       setLoading(false);
     }
@@ -59,7 +79,6 @@ export default function Login() {
   const handleTotpSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setAttemptsRemaining(null);
     setLoading(true);
     try {
       const res = await verifyTwoFactor({ challenge_token: challenge, totp_code: totpCode });
@@ -68,8 +87,6 @@ export default function Login() {
     } catch (err) {
       const data = err.response?.data;
       setError(data?.message || 'Two-factor verification failed.');
-      if (data?.show_captcha) setShowCaptcha(true);
-      if (data?.attempts_remaining !== undefined) setAttemptsRemaining(data.attempts_remaining);
     } finally {
       setLoading(false);
     }
@@ -80,7 +97,6 @@ export default function Login() {
     setSetup(null);
     setTotpCode('');
     setError('');
-    setAttemptsRemaining(null);
   };
 
   return (
@@ -89,12 +105,6 @@ export default function Login() {
       <p className="text-muted">Log in to manage your resumes.</p>
 
       {error && <div className="alert alert-error">{error}</div>}
-
-      {attemptsRemaining !== null && attemptsRemaining > 0 && attemptsRemaining <= 3 && (
-        <div className="alert alert-warning" role="alert">
-          <strong>Warning:</strong> {attemptsRemaining} login attempt{attemptsRemaining === 1 ? '' : 's'} remaining before account lockout.
-        </div>
-      )}
 
       {!challenge ? (
         <form onSubmit={handlePasswordSubmit} noValidate>
@@ -110,18 +120,21 @@ export default function Login() {
               value={form.password} onChange={onChange} required />
           </div>
 
-          {showCaptcha && (
-            <div className="form-group" style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: '#f8f9fa', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '1rem', marginBottom: '1rem' }}>
-              <input 
-                type="checkbox" 
-                id="captcha" 
-                checked={captchaSolved} 
-                onChange={(e) => setCaptchaSolved(e.target.checked)} 
-                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-              />
-              <label htmlFor="captcha" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontWeight: 'bold' }}>
-                I'm not a robot
+          {showCaptcha && captcha && (
+            <div className="form-group" style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: '#f8f9fa', marginTop: '1rem', marginBottom: '1rem' }}>
+              <label htmlFor="captcha_answer" style={{ fontWeight: 'bold' }}>
+                Security check: {captcha.question}
               </label>
+              <input
+                id="captcha_answer"
+                name="captcha_answer"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={captchaAnswer}
+                onChange={(e) => setCaptchaAnswer(e.target.value)}
+                required
+              />
             </div>
           )}
 

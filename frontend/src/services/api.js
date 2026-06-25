@@ -20,6 +20,7 @@ api.interceptors.request.use((config) => {
 
 // Added /api prefix to all backend routes
 export const register = (data) => api.post('/api/auth/register', data);
+export const getCaptcha = () => api.get('/api/auth/captcha');
 export const login = (data) => api.post('/api/auth/login', data);
 export const verifyTwoFactor = (data) => api.post('/api/auth/verify-2fa', data);
 export const logout = () => api.post('/api/auth/logout');

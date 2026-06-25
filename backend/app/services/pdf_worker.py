@@ -30,6 +30,15 @@ def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
     from jinja2 import BaseLoader, select_autoescape
     from jinja2.sandbox import SandboxedEnvironment
     from weasyprint import HTML
+    from weasyprint.urls import default_url_fetcher
+
+    def _blocking_url_fetcher(url: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        # Defence in depth for untrusted uploaded templates: never fetch
+        # external/local resources (SSRF / local-file disclosure). Only inline
+        # data: URIs are allowed so embedded images/fonts still render.
+        if url.startswith("data:"):
+            return default_url_fetcher(url, *args, **kwargs)
+        raise ValueError(f"Blocked external resource during PDF rendering: {url[:80]!r}")
 
     env = SandboxedEnvironment(
         loader=BaseLoader(),
@@ -38,7 +47,7 @@ def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
     env.globals.clear()
 
     html_content = env.from_string(template_src).render(resume=content_json)
-    return HTML(string=html_content).write_pdf()
+    return HTML(string=html_content, url_fetcher=_blocking_url_fetcher).write_pdf()
 
 
 def main() -> int:

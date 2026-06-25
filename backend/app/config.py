@@ -16,6 +16,7 @@ class Config:
     TOTP_ISSUER = os.environ.get("TOTP_ISSUER", "ICT2216 CVBuilder")
     TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
     TWO_FACTOR_CHALLENGE_EXPIRES = int(os.environ.get("TWO_FACTOR_CHALLENGE_EXPIRES", "300"))
+    CAPTCHA_CHALLENGE_EXPIRES = int(os.environ.get("CAPTCHA_CHALLENGE_EXPIRES", "120"))
 
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",

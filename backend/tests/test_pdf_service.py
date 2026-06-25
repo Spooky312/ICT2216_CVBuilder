@@ -1,7 +1,19 @@
 from types import SimpleNamespace
 
+import pytest
+
 from app.models.resume_template import ResumeTemplate
 from app.services import pdf_service
+
+
+def test_blocking_url_fetcher_rejects_external_and_local_resources():
+    for blocked in ("https://evil.example/x.png", "http://169.254.169.254/",
+                    "file:///etc/passwd"):
+        with pytest.raises(ValueError):
+            pdf_service._blocking_url_fetcher(blocked)
+    # Inline data: URIs are still permitted (delegated to the default fetcher).
+    result = pdf_service._blocking_url_fetcher("data:text/plain;base64,aGk=")
+    assert result is not None
 
 
 def test_saved_resume_export_uses_shared_content_renderer(monkeypatch):
@@ -66,10 +78,12 @@ def test_uploaded_template_html_is_used_for_pdf_generation(db, monkeypatch):
 
 def test_empty_skills_do_not_render_skills_section(monkeypatch):
     rendered = []
+    fetchers = []
 
     class FakeHTML:
-        def __init__(self, string):
+        def __init__(self, string, url_fetcher=None):
             rendered.append(string)
+            fetchers.append(url_fetcher)
 
         def write_pdf(self):
             return b"%PDF rendered"
@@ -102,6 +116,8 @@ def test_empty_skills_do_not_render_skills_section(monkeypatch):
     )
     assert "<h2>Skills</h2>" in rendered[-1]
     assert "Python" in rendered[-1]
+    # Rendering must wire in the blocking fetcher (no external resource loading).
+    assert all(f is pdf_service._blocking_url_fetcher for f in fetchers)
 
 def test_pdf_timeout_covers_jinja_rendering(monkeypatch):
     def slow_render(template_src, context):
