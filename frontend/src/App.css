@@ -195,6 +195,13 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
                           border: 1px solid var(--blue-border); border-radius: 20px; padding: 2px 8px;
                           font-weight: 600; text-transform: capitalize; }
 .resume-title { font-size: 16px; font-weight: 600; }
+.resume-rename-form { display: flex; flex-direction: column; gap: 0.35rem; }
+.resume-rename-form label { color: var(--gray-600); font-size: 12px; font-weight: 600; }
+.resume-rename-form input { width: 100%; border: 1px solid var(--gray-200); border-radius: var(--radius);
+                            padding: 0.45rem 0.6rem; font-size: 15px; font-weight: 600; outline: none; }
+.resume-rename-form input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.resume-rename-form input[aria-invalid="true"] { border-color: var(--red); background: #fffafa; }
+.resume-rename-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .resume-date { font-size: 12px; color: var(--gray-400); }
 .resume-card-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 .empty-state { text-align: center; padding: 4rem 1rem; }
