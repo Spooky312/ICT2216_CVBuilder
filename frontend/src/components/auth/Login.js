@@ -11,6 +11,8 @@ export default function Login() {
   const [setup, setSetup] = useState(null);
   const [error, setError] = useState('');
   const [showCaptcha, setShowCaptcha] = useState(false);
+  const [captchaSolved, setCaptchaSolved] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(null);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -27,7 +29,12 @@ export default function Login() {
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
+    if (showCaptcha && !captchaSolved) {
+      setError('Please complete the CAPTCHA to continue.');
+      return;
+    }
     setError('');
+    setAttemptsRemaining(null);
     setLoading(true);
     try {
       const res = await apiLogin(form);
@@ -43,6 +50,7 @@ export default function Login() {
       const data = err.response?.data;
       setError(data?.message || 'Login failed.');
       if (data?.show_captcha) setShowCaptcha(true);
+      if (data?.attempts_remaining !== undefined) setAttemptsRemaining(data.attempts_remaining);
     } finally {
       setLoading(false);
     }
@@ -51,6 +59,7 @@ export default function Login() {
   const handleTotpSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setAttemptsRemaining(null);
     setLoading(true);
     try {
       const res = await verifyTwoFactor({ challenge_token: challenge, totp_code: totpCode });
@@ -60,6 +69,7 @@ export default function Login() {
       const data = err.response?.data;
       setError(data?.message || 'Two-factor verification failed.');
       if (data?.show_captcha) setShowCaptcha(true);
+      if (data?.attempts_remaining !== undefined) setAttemptsRemaining(data.attempts_remaining);
     } finally {
       setLoading(false);
     }
@@ -70,6 +80,7 @@ export default function Login() {
     setSetup(null);
     setTotpCode('');
     setError('');
+    setAttemptsRemaining(null);
   };
 
   return (
@@ -79,9 +90,9 @@ export default function Login() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {showCaptcha && (
-        <div className="alert alert-warning">
-          Too many failed attempts. Please prove you're human before continuing.
+      {attemptsRemaining !== null && attemptsRemaining > 0 && attemptsRemaining <= 3 && (
+        <div className="alert alert-warning" role="alert">
+          <strong>Warning:</strong> {attemptsRemaining} login attempt{attemptsRemaining === 1 ? '' : 's'} remaining before account lockout.
         </div>
       )}
 
@@ -98,6 +109,21 @@ export default function Login() {
             <input id="password" name="password" type="password" autoComplete="current-password"
               value={form.password} onChange={onChange} required />
           </div>
+
+          {showCaptcha && (
+            <div className="form-group" style={{ padding: '12px', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: '#f8f9fa', display: 'flex', alignItems: 'center', gap: '12px', marginTop: '1rem', marginBottom: '1rem' }}>
+              <input 
+                type="checkbox" 
+                id="captcha" 
+                checked={captchaSolved} 
+                onChange={(e) => setCaptchaSolved(e.target.checked)} 
+                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+              />
+              <label htmlFor="captcha" style={{ margin: 0, cursor: 'pointer', userSelect: 'none', fontWeight: 'bold' }}>
+                I'm not a robot
+              </label>
+            </div>
+          )}
 
           <button type="submit" className="btn-primary btn-full" disabled={loading}>
             {loading ? 'Checking password...' : 'Continue'}
