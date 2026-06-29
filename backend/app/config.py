@@ -18,10 +18,7 @@ class Config:
     TWO_FACTOR_CHALLENGE_EXPIRES = int(os.environ.get("TWO_FACTOR_CHALLENGE_EXPIRES", "300"))
     CAPTCHA_CHALLENGE_EXPIRES = int(os.environ.get("CAPTCHA_CHALLENGE_EXPIRES", "120"))
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL",
-        "postgresql://cvbuilder:cvbuilder@localhost:5432/cvbuilder"
-    )
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
     RATELIMIT_STORAGE_URI = os.environ.get("REDIS_URL", "memory://")
