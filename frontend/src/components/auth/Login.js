@@ -93,9 +93,13 @@ export default function Login() {
   };
 
   const resetPasswordStep = () => {
+    setForm({ email: '', password: '' });
     setChallenge(null);
     setSetup(null);
     setTotpCode('');
+    setShowCaptcha(false);
+    setCaptcha(null);
+    setCaptchaAnswer('');
     setError('');
   };
 
