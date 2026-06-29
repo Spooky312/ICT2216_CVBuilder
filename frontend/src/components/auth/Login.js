@@ -92,7 +92,9 @@ export default function Login() {
     }
   };
 
-  const resetPasswordStep = () => {
+  const resetPasswordStep = (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     setForm({ email: '', password: '' });
     setChallenge(null);
     setSetup(null);
@@ -100,6 +102,7 @@ export default function Login() {
     setShowCaptcha(false);
     setCaptcha(null);
     setCaptchaAnswer('');
+    setLoading(false);
     setError('');
   };
 
@@ -147,29 +150,31 @@ export default function Login() {
           </button>
         </form>
       ) : (
-        <form onSubmit={handleTotpSubmit} noValidate>
-          {setup && (
-            <>
-              <p className="text-muted">Set up two-factor authentication in your authenticator app before continuing.</p>
-              <TotpQrCode uri={setup.uri} />
-            </>
-          )}
+        <>
+          <form onSubmit={handleTotpSubmit} noValidate>
+            {setup && (
+              <>
+                <p className="text-muted">Set up two-factor authentication in your authenticator app before continuing.</p>
+                <TotpQrCode uri={setup.uri} />
+              </>
+            )}
 
-          <div className="form-group">
-            <label htmlFor="totp_code">Authenticator Code</label>
-            <input id="totp_code" name="totp_code" type="text" inputMode="numeric"
-              autoComplete="one-time-code" pattern="[0-9 ]*" maxLength={12}
-              value={totpCode} onChange={(e) => setTotpCode(e.target.value)} required />
-          </div>
+            <div className="form-group">
+              <label htmlFor="totp_code">Authenticator Code</label>
+              <input id="totp_code" name="totp_code" type="text" inputMode="numeric"
+                autoComplete="one-time-code" pattern="[0-9 ]*" maxLength={12}
+                value={totpCode} onChange={(e) => setTotpCode(e.target.value)} required />
+            </div>
 
-          <button type="submit" className="btn-primary btn-full" disabled={loading}>
-            {loading ? 'Verifying...' : 'Log In'}
-          </button>
+            <button type="submit" className="btn-primary btn-full" disabled={loading}>
+              {loading ? 'Verifying...' : 'Log In'}
+            </button>
+          </form>
           <button type="button" className="btn-secondary btn-full" onClick={resetPasswordStep}
             disabled={loading} style={{ marginTop: '0.75rem' }}>
             Use a different account
           </button>
-        </form>
+        </>
       )}
 
       <p className="auth-footer">
