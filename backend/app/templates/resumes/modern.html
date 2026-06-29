@@ -85,7 +85,7 @@
         {% if edu.end_date %} &ndash; {{ edu.end_date }}{% endif %}
       </div>
     </div>
-    {% if edu.gpa %}<div class="entry-desc">GPA: {{ edu.gpa }}</div>{% endif %}
+    {% if edu.gpa %}<div class="entry-desc">Grade: {{ edu.gpa }}</div>{% endif %}
     {% if edu.description %}<div class="entry-desc">{{ edu.description }}</div>{% endif %}
   </div>
   {% endfor %}
@@ -111,7 +111,7 @@
   {% endfor %}
   {% endif %}
 
-  {% if resume.skills %}
+  {% if resume.skills.technical or resume.skills.soft or resume.skills.languages or resume.skills.certifications %}
   <h2>Skills</h2>
   {% if resume.skills.technical %}
   <div class="skill-label">Technical</div>

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 from typing import Any
@@ -27,7 +27,19 @@ def _init_extensions(app: Flask) -> None:
     limiter.init_app(app)
     migrate.init_app(app, db)
 
-    from .models import User, Resume, AuditLog  # noqa: ensure models are registered
+    from .models import User, Resume, AuditLog, RevokedToken, ResumeTemplate  # noqa: ensure models are registered
+
+    @jwt.token_in_blocklist_loader
+    def token_in_blocklist(
+        _jwt_header: dict[str, Any], jwt_payload: dict[str, Any]
+    ) -> bool:
+        return RevokedToken.is_revoked(jwt_payload.get("jti"))
+
+    @jwt.revoked_token_loader
+    def revoked_token(
+        _jwt_header: dict[str, Any], _jwt_payload: dict[str, Any]
+    ) -> tuple[Response, int]:
+        return jsonify({"message": "Token has been revoked."}), 401
 
     @jwt.expired_token_loader
     def expired_token(
@@ -86,10 +98,12 @@ def _set_security_headers(app: Flask) -> None:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "frame-src 'self' blob:;"
         )
         if app.config.get("JWT_COOKIE_SECURE"):
             response.headers["Strict-Transport-Security"] = (
                 "max-age=31536000; includeSubDomains"
             )
         return response
+

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import EntryCard from '../EntryCard';
+import FieldError, { errorProps } from '../../common/FieldError';
+import MonthYearPicker from '../MonthYearPicker';
 
 const BLANK = { name: '', description: '', technologies: [], url: '', start_date: '', end_date: '' };
 
-export default function Projects({ data, onChange }) {
+export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
   const items = data || [];
 
   // Keep a raw string per entry for the technologies field so the user can
@@ -69,42 +71,53 @@ export default function Projects({ data, onChange }) {
         <EntryCard key={i} index={i} label="Project" onRemove={() => remove(i)}>
           <div className="form-row">
             <div className="form-group">
-              <label>Project Name *</label>
-              <input value={proj.name} onChange={(e) => update(i, 'name', e.target.value)} maxLength={200} />
+              <label htmlFor={`project-${i}-name`}>Project Name *</label>
+              <input id={`project-${i}-name`} value={proj.name}
+                onChange={(e) => update(i, 'name', e.target.value)} onBlur={() => onFieldBlur(`${i}.name`)}
+                maxLength={200} {...errorProps(errors, `${i}.name`, `project-${i}-name`)} />
+              <FieldError errors={errors} name={`${i}.name`} inputId={`project-${i}-name`} />
             </div>
             <div className="form-group">
-              <label>URL</label>
+              <label htmlFor={`project-${i}-url`}>URL</label>
               <input
-                type="text"
+                id={`project-${i}-url`}
+                type="url"
                 value={proj.url}
                 onChange={(e) => update(i, 'url', e.target.value)}
+                onBlur={() => onFieldBlur(`${i}.url`)}
                 maxLength={255}
-                placeholder="https://github.com/you/project"
+                placeholder="github.com/you/project"
+                {...errorProps(errors, `${i}.url`, `project-${i}-url`)}
               />
-              <small className="field-hint">Must start with https:// or leave blank</small>
+              <small className="field-hint">We’ll add https:// automatically</small>
+              <FieldError errors={errors} name={`${i}.url`} inputId={`project-${i}-url`} />
             </div>
           </div>
           <div className="form-row">
-            <div className="form-group">
-              <label>Start Date</label>
-              <input value={proj.start_date} onChange={(e) => update(i, 'start_date', e.target.value)}
-                placeholder="2023" maxLength={7} />
-            </div>
-            <div className="form-group">
-              <label>End Date</label>
-              <input value={proj.end_date} onChange={(e) => update(i, 'end_date', e.target.value)}
-                placeholder="2024 or Present" maxLength={7} />
-            </div>
+            <MonthYearPicker id={`project-${i}-start`} label="Start Date" value={proj.start_date}
+              onChange={(value) => update(i, 'start_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
+              errors={errors} errorName={`${i}.start_date`} />
+            <MonthYearPicker id={`project-${i}-end`} label="End Date" value={proj.end_date}
+              onChange={(value) => update(i, 'end_date', value)}
+              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
+              allowPresent presentLabel="Currently working on this project"
+              errors={errors} errorName={`${i}.end_date`} />
           </div>
 
           <div className="form-group">
-            <label>Technologies <small>(comma-separated, press Tab or click away to apply)</small></label>
+            <label htmlFor={`project-${i}-technologies`}>Technologies <small>(comma-separated)</small></label>
             <input
+              id={`project-${i}-technologies`}
               value={rawTechs[i] !== undefined ? rawTechs[i] : (proj.technologies || []).join(', ')}
               onChange={(e) => onTechChange(i, e.target.value)}
-              onBlur={() => onTechBlur(i)}
+              onBlur={() => {
+                onTechBlur(i);
+                window.requestAnimationFrame(() => onFieldBlur(`${i}.technologies`));
+              }}
               placeholder="Python, React, PostgreSQL"
             />
+            <FieldError errors={errors} name={`${i}.technologies`} inputId={`project-${i}-technologies`} />
             {(proj.technologies || []).length > 0 && (
               <div className="tags" style={{ marginTop: '0.4rem' }}>
                 {proj.technologies.map((t) => (

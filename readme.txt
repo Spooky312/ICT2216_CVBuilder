@@ -32,20 +32,13 @@ proxy. Docker must be installed and running.
   1. Navigate to the project root:
        cd cvbuilder
 
-  2. Start the backend services (db, redis, backend):
+  2. Start the ALL services (db, redis, backend, frontend):
        docker compose -f docker-compose.dev.yml up --build
 
      The Flask backend will be available at http://localhost:5000
      PostgreSQL is exposed on localhost:5432
      Redis is exposed on localhost:6379
-
-  3. In a separate terminal, start the Vite dev server:
-       cd frontend
-       npm install
-       npm start
-
-     The app will be available at http://localhost:5173
-     API requests are proxied to http://localhost:5000 via vite.config.js
+     App will be available at http://localhost:3000
 
 ---- Production ----
 

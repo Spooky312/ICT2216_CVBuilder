@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-CERT=/etc/nginx/certs/cert.pem
-KEY=/etc/nginx/certs/key.pem
+CERT=/etc/nginx/certs/CVBuildApp.crt
+KEY=/etc/nginx/certs/CVBuildApp.key
 
 if [ -f "$CERT" ] && [ -f "$KEY" ]; then
     echo "[nginx] TLS certificates found — starting with HTTPS"

@@ -57,6 +57,11 @@ def main() -> None:
     print("[boot] Applying database migrations...")
     run("flask", "db", "upgrade")
 
+    # Preset the administrator account (idempotent). Disable with SEED_ADMIN=false.
+    if os.environ.get("SEED_ADMIN", "true").strip().lower() in {"1", "true", "yes", "on"}:
+        print("[boot] Seeding admin account...")
+        run(sys.executable, "seed_admin.py", check=False)
+
     # Hand off to the real server (argv[1:] is the CMD passed from compose/Dockerfile)
     server_cmd = sys.argv[1:]
     if not server_cmd:

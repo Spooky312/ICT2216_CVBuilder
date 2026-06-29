@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { register } from '../../services/api';
 
@@ -7,13 +7,13 @@ const PASSWORD_RULES = [
   { test: (p) => /[A-Z]/.test(p), label: 'Uppercase letter' },
   { test: (p) => /[a-z]/.test(p), label: 'Lowercase letter' },
   { test: (p) => /\d/.test(p), label: 'Number' },
-  { test: (p) => /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'`~]/.test(p), label: 'Special character' },
+  { test: (p) => /[!@#$%^&*(),.?":{}|<>_+=\[\]\\;'`~-]/.test(p), label: 'Special character' },
 ];
 
 export default function Register() {
   const [form, setForm] = useState({ full_name: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
-  const [success, setSuccess] = useState(false);
+  const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -24,7 +24,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register(form);
-      setSuccess(true);
+      setDone(true);
     } catch (err) {
       const data = err.response?.data;
       if (data?.errors) setErrors(data.errors);
@@ -34,12 +34,13 @@ export default function Register() {
     }
   };
 
-  if (success) {
+  if (done) {
     return (
       <div className="auth-card">
-        <h2>Account created!</h2>
+        <h2>Account created</h2>
         <p className="text-muted">
-          Your account has been created. You can now log in.
+          Your account is ready. Log in to set up two-factor authentication in your
+          authenticator app and start building your resume.
         </p>
         <Link to="/login" className="btn-primary" style={{ marginTop: '1rem', display: 'inline-block' }}>
           Go to Login
@@ -78,14 +79,14 @@ export default function Register() {
           <ul className="password-rules">
             {PASSWORD_RULES.map((r) => (
               <li key={r.label} className={r.test(form.password) ? 'rule-ok' : 'rule-fail'}>
-                {r.test(form.password) ? '✓' : '○'} {r.label}
+                {r.test(form.password) ? 'OK' : '--'} {r.label}
               </li>
             ))}
           </ul>
         </div>
 
         <button type="submit" className="btn-primary btn-full" disabled={loading}>
-          {loading ? 'Creating account…' : 'Create Account'}
+          {loading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>
 

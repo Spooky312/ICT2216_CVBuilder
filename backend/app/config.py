@@ -13,6 +13,11 @@ class Config:
     JWT_COOKIE_CSRF_PROTECT = True
     JWT_ACCESS_CSRF_HEADER_NAME = "X-CSRF-TOKEN"
 
+    TOTP_ISSUER = os.environ.get("TOTP_ISSUER", "ICT2216 CVBuilder")
+    TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
+    TWO_FACTOR_CHALLENGE_EXPIRES = int(os.environ.get("TWO_FACTOR_CHALLENGE_EXPIRES", "300"))
+    CAPTCHA_CHALLENGE_EXPIRES = int(os.environ.get("CAPTCHA_CHALLENGE_EXPIRES", "120"))
+
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
         "postgresql://cvbuilder:cvbuilder@localhost:5432/cvbuilder"
@@ -24,6 +29,7 @@ class Config:
 
     MAX_RESUMES_PER_USER = 10
     PDF_GENERATION_TIMEOUT = 30
+    PDF_WORKER_MEMORY_MB = int(os.environ.get("PDF_WORKER_MEMORY_MB", "512"))
 
     BCRYPT_LOG_ROUNDS = 12
 
@@ -42,6 +48,7 @@ class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     JWT_COOKIE_SECURE = False
+    JWT_COOKIE_CSRF_PROTECT = False
     BCRYPT_LOG_ROUNDS = 4
     RATELIMIT_ENABLED = False
 

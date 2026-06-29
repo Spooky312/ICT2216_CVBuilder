@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  getResumeLimits, listResumes, deleteResume, duplicateResume, exportResume,
+  getResumeLimits, listResumes, deleteResume, duplicateResume, exportResume, updateResume,
 } from '../services/api';
 import Spinner from '../components/common/Spinner';
 import { useAsyncAction } from '../hooks/useAsyncAction';
@@ -20,6 +20,9 @@ export default function Dashboard() {
   const [maxResumes, setMaxResumes] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [renameError, setRenameError] = useState('');
   const { loading: actionLoading, run: runAction } = useAsyncAction();
   const navigate = useNavigate();
 
@@ -45,6 +48,43 @@ export default function Dashboard() {
       setError(typeof msg === 'string' ? msg : 'Action failed. Please try again.');
     }
   };
+
+  const startRename = (resume) => {
+    setError('');
+    setRenameError('');
+    setRenamingId(resume.resume_id);
+    setRenameTitle(resume.title || '');
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameTitle('');
+    setRenameError('');
+  };
+
+  const handleRename = (resume) => withAction(`${resume.resume_id}:rename`, async () => {
+    const nextTitle = renameTitle.trim();
+    if (!nextTitle) {
+      setRenameError('Resume name is required.');
+      return;
+    }
+    if (nextTitle.length > 100) {
+      setRenameError('Resume name must be 100 characters or fewer.');
+      return;
+    }
+    if (nextTitle === resume.title) {
+      cancelRename();
+      return;
+    }
+
+    const res = await updateResume(resume.resume_id, { title: nextTitle });
+    setResumes((prev) => prev.map((item) => (
+      item.resume_id === resume.resume_id
+        ? { ...item, title: res.data.title, updated_at: res.data.updated_at || item.updated_at }
+        : item
+    )));
+    cancelRename();
+  });
 
   const handleDelete = (id) => withAction(`${id}:delete`, async () => {
     if (!window.confirm('Delete this resume? This cannot be undone.')) return;
@@ -83,39 +123,80 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="resume-grid">
-          {resumes.map((r) => (
-            <div key={r.resume_id} className="resume-card">
-              <div className="resume-card-header">
-                <span className="resume-template-badge">{r.template_id}</span>
+          {resumes.map((r) => {
+            const isRenaming = renamingId === r.resume_id;
+            const isBusy = !!actionLoading[`${r.resume_id}:delete`]
+              || !!actionLoading[`${r.resume_id}:duplicate`]
+              || !!actionLoading[`${r.resume_id}:export`]
+              || !!actionLoading[`${r.resume_id}:rename`];
+
+            return (
+              <div key={r.resume_id} className="resume-card">
+                <div className="resume-card-header">
+                  <span className="resume-template-badge">{r.template_id}</span>
+                </div>
+
+                {isRenaming ? (
+                  <form className="resume-rename-form" onSubmit={(event) => {
+                    event.preventDefault();
+                    handleRename(r);
+                  }}>
+                    <label htmlFor={`rename-${r.resume_id}`}>Resume Name</label>
+                    <input id={`rename-${r.resume_id}`} value={renameTitle}
+                      onChange={(event) => {
+                        setRenameTitle(event.target.value);
+                        setRenameError('');
+                      }} maxLength={100} autoFocus aria-invalid={Boolean(renameError)}
+                      aria-describedby={renameError ? `rename-error-${r.resume_id}` : undefined} />
+                    {renameError && (
+                      <span id={`rename-error-${r.resume_id}`} className="field-error">{renameError}</span>
+                    )}
+                    <div className="resume-rename-actions">
+                      <button type="submit" className="btn-primary-sm" disabled={isBusy}>
+                        {actionLoading[`${r.resume_id}:rename`] ? <Spinner size={14} /> : 'Save'}
+                      </button>
+                      <button type="button" className="btn-secondary-sm" onClick={cancelRename} disabled={isBusy}>
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <h3 className="resume-title">{r.title}</h3>
+                )}
+
+                <p className="resume-date">
+                  Updated {new Date(r.updated_at).toLocaleDateString()}
+                </p>
+                <div className="resume-card-actions">
+                  <button className="btn-secondary-sm"
+                    onClick={() => startRename(r)}
+                    disabled={isBusy || isRenaming}>
+                    Rename
+                  </button>
+                  <button className="btn-secondary-sm"
+                    onClick={() => navigate(`/resumes/${r.resume_id}/edit`)}
+                    disabled={isBusy || isRenaming}>
+                    Edit
+                  </button>
+                  <button className="btn-secondary-sm"
+                    onClick={() => handleDuplicate(r.resume_id)}
+                    disabled={isBusy || isRenaming || resumes.length >= (maxResumes ?? Infinity)}>
+                    {actionLoading[`${r.resume_id}:duplicate`] ? <Spinner size={14} /> : 'Copy'}
+                  </button>
+                  <button className="btn-primary-sm"
+                    onClick={() => handleExport(r.resume_id, r.title)}
+                    disabled={isBusy || isRenaming}>
+                    {actionLoading[`${r.resume_id}:export`] ? <Spinner size={14} /> : 'Export PDF'}
+                  </button>
+                  <button className="btn-danger-sm"
+                    onClick={() => handleDelete(r.resume_id)}
+                    disabled={isBusy || isRenaming}>
+                    Delete
+                  </button>
+                </div>
               </div>
-              <h3 className="resume-title">{r.title}</h3>
-              <p className="resume-date">
-                Updated {new Date(r.updated_at).toLocaleDateString()}
-              </p>
-              <div className="resume-card-actions">
-                <button className="btn-secondary-sm"
-                  onClick={() => navigate(`/resumes/${r.resume_id}/edit`)}
-                  disabled={!!actionLoading[`${r.resume_id}:delete`] || !!actionLoading[`${r.resume_id}:duplicate`] || !!actionLoading[`${r.resume_id}:export`]}>
-                  Edit
-                </button>
-                <button className="btn-secondary-sm"
-                  onClick={() => handleDuplicate(r.resume_id)}
-                  disabled={!!actionLoading[`${r.resume_id}:duplicate`] || resumes.length >= (maxResumes ?? Infinity)}>
-                  {actionLoading[`${r.resume_id}:duplicate`] ? <Spinner size={14} /> : 'Copy'}
-                </button>
-                <button className="btn-primary-sm"
-                  onClick={() => handleExport(r.resume_id, r.title)}
-                  disabled={!!actionLoading[`${r.resume_id}:export`]}>
-                  {actionLoading[`${r.resume_id}:export`] ? <Spinner size={14} /> : 'Export PDF'}
-                </button>
-                <button className="btn-danger-sm"
-                  onClick={() => handleDelete(r.resume_id)}
-                  disabled={!!actionLoading[`${r.resume_id}:delete`]}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

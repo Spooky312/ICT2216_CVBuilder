@@ -79,7 +79,7 @@
       </span>
     </div>
     <div class="entry-subtitle">{{ edu.institution | default('') }}</div>
-    {% if edu.gpa %}<div class="entry-desc">GPA: {{ edu.gpa }}</div>{% endif %}
+    {% if edu.gpa %}<div class="entry-desc">Grade: {{ edu.gpa }}</div>{% endif %}
     {% if edu.description %}<div class="entry-desc">{{ edu.description }}</div>{% endif %}
   </div>
   {% endfor %}
@@ -101,7 +101,7 @@
   {% endfor %}
   {% endif %}
 
-  {% if resume.skills %}
+  {% if resume.skills.technical or resume.skills.soft or resume.skills.languages or resume.skills.certifications %}
   <h2>Skills</h2>
   {% if resume.skills.technical %}
   <div class="skills-row"><span class="skill-label">Technical: </span>{{ resume.skills.technical | join(' &bull; ') }}</div>
