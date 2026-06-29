@@ -3,7 +3,6 @@
 import io
 import uuid
 from flask import Blueprint, request, jsonify, send_file, current_app, Response
-from flask_jwt_extended import jwt_required
 from app.extensions import db, limiter
 from app.models.user import User
 from app.models.resume import Resume
@@ -13,7 +12,7 @@ from app.schemas.resume_schema import (
 from app.services.pdf_service import generate_pdf, generate_pdf_from_content
 from app.services.template_service import get_active_template, list_templates
 from app.utils.audit import log_event
-from app.utils.helpers import current_user_id, get_current_user_or_404, load_or_422
+from app.utils.helpers import active_jwt_required, current_user_id, get_current_user_or_404, load_or_422
 
 resumes_bp = Blueprint("resumes", __name__, url_prefix="/api/resumes")
 
@@ -49,7 +48,7 @@ def _template_or_422(template_id: str) -> tuple[None, None] | tuple[None, tuple[
 
 
 @resumes_bp.route("/preview", methods=["POST"])
-@jwt_required()
+@active_jwt_required()
 @limiter.limit("10 per minute", key_func=lambda: str(current_user_id()))
 def preview_resume() -> tuple[Response, int] | Response:
     """Render an unsaved, validated draft without persisting personal data."""
@@ -91,7 +90,7 @@ def _locked_current_user() -> User | None:
 
 
 @resumes_bp.route("", methods=["GET"])
-@jwt_required()
+@active_jwt_required()
 def list_resumes() -> tuple[Response, int]:
     user, err = get_current_user_or_404()
     if err:
@@ -104,7 +103,7 @@ def list_resumes() -> tuple[Response, int]:
 
 
 @resumes_bp.route("", methods=["POST"])
-@jwt_required()
+@active_jwt_required()
 def create_resume() -> tuple[Response, int]:
     data, err = load_or_422(create_schema, request.get_json(force=True) or {})
     if err:
@@ -135,7 +134,7 @@ def create_resume() -> tuple[Response, int]:
 
 
 @resumes_bp.route("/<resume_id>", methods=["GET"])
-@jwt_required()
+@active_jwt_required()
 def get_resume(resume_id: str) -> tuple[Response, int]:
     user, err = get_current_user_or_404()
     if err:
@@ -149,7 +148,7 @@ def get_resume(resume_id: str) -> tuple[Response, int]:
 
 
 @resumes_bp.route("/<resume_id>", methods=["PUT"])
-@jwt_required()
+@active_jwt_required()
 def update_resume(resume_id: str) -> tuple[Response, int]:
     user, err = get_current_user_or_404()
     if err:
@@ -181,7 +180,7 @@ def update_resume(resume_id: str) -> tuple[Response, int]:
 
 
 @resumes_bp.route("/<resume_id>", methods=["DELETE"])
-@jwt_required()
+@active_jwt_required()
 def delete_resume(resume_id: str) -> tuple[Response, int]:
     user, err = get_current_user_or_404()
     if err:
@@ -199,7 +198,7 @@ def delete_resume(resume_id: str) -> tuple[Response, int]:
 
 
 @resumes_bp.route("/<resume_id>/duplicate", methods=["POST"])
-@jwt_required()
+@active_jwt_required()
 def duplicate_resume(resume_id: str) -> tuple[Response, int]:
     user = _locked_current_user()
     if not user:
@@ -227,7 +226,7 @@ def duplicate_resume(resume_id: str) -> tuple[Response, int]:
 
 
 @resumes_bp.route("/<resume_id>/export", methods=["GET"])
-@jwt_required()
+@active_jwt_required()
 @limiter.limit("10 per minute", key_func=lambda: str(current_user_id()))
 def export_resume(resume_id: str) -> tuple[Response, int] | Response:
     user, err = get_current_user_or_404()
@@ -267,13 +266,13 @@ def export_resume(resume_id: str) -> tuple[Response, int] | Response:
 
 
 @resumes_bp.route("/limits", methods=["GET"])
-@jwt_required()
+@active_jwt_required()
 def get_limits() -> tuple[Response, int]:
     return jsonify({"max_resumes": _max_resumes()}), 200
 
 
 @resumes_bp.route("/templates", methods=["GET"])
-@jwt_required()
+@active_jwt_required()
 def list_resume_templates() -> tuple[Response, int]:
     templates = [template.to_dict() for template in list_templates(active_only=True)]
     return jsonify(templates), 200

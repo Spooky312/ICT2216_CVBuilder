@@ -2,15 +2,18 @@
 
 import uuid
 from collections.abc import Callable
-from typing import Any
+from functools import wraps
+from typing import Any, TypeVar
 
 from flask import jsonify, Response
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_sqlalchemy.pagination import Pagination
 from marshmallow import Schema, ValidationError
 
 from app.extensions import db
 from app.models.user import User
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 
 def parse_uuid(value: Any) -> uuid.UUID | None:
@@ -51,6 +54,20 @@ def get_current_user_or_404() -> tuple[User, None] | tuple[None, tuple[Response,
     if not user.is_active:
         return None, (jsonify({"message": "Account is deactivated."}), 403)
     return user, None
+
+
+def active_jwt_required(*, refresh: bool = False) -> Callable[[_F], _F]:
+    """Require a valid JWT whose user row still exists and is active."""
+    def decorator(fn: _F) -> _F:
+        @wraps(fn)
+        @jwt_required(refresh=refresh)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            _, err = get_current_user_or_404()
+            if err:
+                return err
+            return fn(*args, **kwargs)
+        return wrapper  # type: ignore[return-value]
+    return decorator
 
 
 def paginate_response(

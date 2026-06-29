@@ -11,7 +11,7 @@ from app.models.user import User
 from app.schemas.user_schema import RegisterSchema, LoginSchema, VerifyTwoFactorSchema
 from app.utils.audit import log_event
 from app.utils.captcha import generate_captcha, verify_captcha
-from app.utils.helpers import current_user_id, load_or_422
+from app.utils.helpers import active_jwt_required, current_user_id, load_or_422
 from app.utils.security import record_failed_login, reset_failed_logins
 from app.utils.token_blocklist import revoke_jwt_payloads
 from app.utils.totp import (
@@ -31,9 +31,13 @@ verify_2fa_schema = VerifyTwoFactorSchema()
 _REGISTER_OK_MESSAGE = "Account created. Log in to finish setting up two-factor authentication."
 
 # After this many consecutive failed logins the account must solve a
-# server-issued CAPTCHA on every further attempt. Kept in sync with the
-# show_captcha flag returned to the client so the UI and the server gate agree.
+# server-issued CAPTCHA on every further attempt. Invalid-credential responses
+# always use the same shape so CAPTCHA state cannot identify registered emails.
 _CAPTCHA_THRESHOLD = 3
+_INVALID_LOGIN_RESPONSE = {
+    "message": "Invalid credentials.",
+    "show_captcha": True,
+}
 
 
 def _captcha_required(user: User) -> bool:
@@ -49,6 +53,10 @@ def _equalize_password_timing(password: str) -> None:
     User().set_password(password)
 
 
+def _invalid_login() -> tuple[Response, int]:
+    return jsonify(_INVALID_LOGIN_RESPONSE), 401
+
+
 def _totp_setup_payload(user: User, secret: str) -> dict[str, str | bool]:
     return {
         "requires_2fa": True,
@@ -57,16 +65,23 @@ def _totp_setup_payload(user: User, secret: str) -> dict[str, str | bool]:
     }
 
 
-def _ensure_totp_setup(user: User) -> tuple[str, dict[str, str | bool] | None]:
+def _totp_challenge_payload(user: User) -> dict[str, str | bool]:
+    payload: dict[str, str | bool] = {
+        "message": "Enter your authenticator code.",
+        "requires_2fa": True,
+    }
     if user.totp_secret:
-        return decrypt_totp_secret(user.totp_secret), None
+        payload["challenge_token"] = create_two_factor_challenge(user.user_id)
+        return payload
 
     secret = generate_totp_secret()
-    user.totp_secret = encrypt_totp_secret(secret)
-    user.totp_enabled = True
-    db.session.commit()
-    log_event("totp_setup_generated", user_id=user.user_id)
-    return secret, _totp_setup_payload(user, secret)
+    payload["challenge_token"] = create_two_factor_challenge(
+        user.user_id,
+        setup_secret=secret,
+    )
+    payload.update(_totp_setup_payload(user, secret))
+    log_event("totp_setup_pending", user_id=user.user_id)
+    return payload
 
 
 def _issue_login_response(user: User) -> tuple[Response, int]:
@@ -142,10 +157,7 @@ def login() -> tuple[Response, int]:
         # NOTE: keep in sync with the wrong-password response shape below.
         _equalize_password_timing(data["password"])
         log_event("login_failed_unknown", metadata={"email": data["email"]})
-        return jsonify({
-            "message": "Invalid credentials.",
-            "show_captcha": False,
-        }), 401
+        return _invalid_login()
 
     if user.is_locked():
         log_event("login_blocked_locked", user_id=user.user_id)
@@ -160,10 +172,8 @@ def login() -> tuple[Response, int]:
         data.get("captcha_token"), data.get("captcha_answer")
     ):
         log_event("login_captcha_failed", user_id=user.user_id)
-        return jsonify({
-            "message": "Please complete the CAPTCHA to continue.",
-            "show_captcha": True,
-        }), 400
+        _equalize_password_timing(data["password"])
+        return _invalid_login()
 
     if not user.check_password(data["password"]):
         record_failed_login(user)
@@ -175,27 +185,16 @@ def login() -> tuple[Response, int]:
         if user.is_locked():
             msg = "Invalid credentials. Account is now locked."
 
-        return jsonify({
-            "message": msg,
-            "show_captcha": failed >= _CAPTCHA_THRESHOLD,
-        }), 401
+        if user.is_locked():
+            return jsonify({"message": msg, "show_captcha": True}), 401
+        return _invalid_login()
 
     if not user.is_active:
         log_event("login_blocked_deactivated", user_id=user.user_id)
         return jsonify({"message": "Account is deactivated."}), 403
 
-    secret, setup_payload = _ensure_totp_setup(user)
-    challenge_token = create_two_factor_challenge(user.user_id)
     log_event("login_totp_required", user_id=user.user_id)
-
-    payload: dict[str, str | bool] = {
-        "message": "Enter your authenticator code.",
-        "requires_2fa": True,
-        "challenge_token": challenge_token,
-    }
-    if setup_payload:
-        payload.update(setup_payload)
-    return jsonify(payload), 202
+    return jsonify(_totp_challenge_payload(user)), 202
 
 
 @auth_bp.route("/verify-2fa", methods=["POST"])
@@ -205,11 +204,11 @@ def verify_2fa() -> tuple[Response, int]:
     if err:
         return err
 
-    uid = verify_two_factor_challenge(data["challenge_token"])
-    if uid is None:
+    challenge = verify_two_factor_challenge(data["challenge_token"])
+    if challenge is None:
         return jsonify({"message": "Two-factor challenge expired. Please log in again."}), 401
 
-    user = db.session.get(User, uid)
+    user = db.session.get(User, challenge.user_id)
     if not user:
         return jsonify({"message": "User not found."}), 404
     if not user.is_active:
@@ -218,10 +217,10 @@ def verify_2fa() -> tuple[Response, int]:
     if user.is_locked():
         log_event("login_blocked_locked", user_id=user.user_id)
         return jsonify({"message": "Account temporarily locked. Try again later."}), 429
-    if not user.totp_secret:
+    if not user.totp_secret and not challenge.setup_secret:
         return jsonify({"message": "Two-factor authentication is not set up."}), 400
 
-    secret = decrypt_totp_secret(user.totp_secret)
+    secret = decrypt_totp_secret(user.totp_secret) if user.totp_secret else challenge.setup_secret
     if not verify_totp_code(secret, data["totp_code"]):
         record_failed_login(user)
         failed = user.failed_logins
@@ -237,11 +236,16 @@ def verify_2fa() -> tuple[Response, int]:
             "show_captcha": failed >= _CAPTCHA_THRESHOLD,
         }), 401
 
+    if not user.totp_secret:
+        user.totp_secret = encrypt_totp_secret(secret)
+        user.totp_enabled = True
+        log_event("totp_setup_completed", user_id=user.user_id)
+
     return _issue_login_response(user)
 
 
 @auth_bp.route("/refresh", methods=["POST"])
-@jwt_required(refresh=True)
+@active_jwt_required(refresh=True)
 def refresh() -> tuple[Response, int]:
     uid = current_user_id()
     if uid is None:
@@ -250,6 +254,8 @@ def refresh() -> tuple[Response, int]:
     user = db.session.get(User, uid)
     if not user:
         return jsonify({"message": "User not found."}), 404
+    if not user.is_active:
+        return jsonify({"message": "Account is deactivated."}), 403
 
     identity = str(user.user_id)
     additional = {"role": user.role, "email": user.email}
@@ -282,8 +288,5 @@ def _decode_refresh_cookie() -> dict[str, object] | None:
     except Exception:
         current_app.logger.warning("Failed to decode refresh token during logout", exc_info=True)
         return None
-
-
-
 
 

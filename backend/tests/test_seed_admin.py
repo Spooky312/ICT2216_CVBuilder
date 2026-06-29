@@ -1,7 +1,9 @@
+import pyotp
+
 from app.models.user import User
 from seed_admin import seed_admin
 
-from tests.test_auth import LOGIN_URL
+from tests.test_auth import LOGIN_URL, VERIFY_2FA_URL
 
 
 def test_seed_admin_does_not_log_totp_secret_or_uri(db, monkeypatch, capsys):
@@ -42,4 +44,13 @@ def test_seeded_admin_can_enroll_totp_on_first_login(client, db, monkeypatch):
     assert body["challenge_token"]
     assert body["totp_secret"]
     assert body["totp_uri"].startswith("otpauth://totp/")
+    assert admin.totp_secret is None
+
+    verify_response = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": body["challenge_token"],
+        "totp_code": pyotp.TOTP(body["totp_secret"]).now(),
+    })
+
+    assert verify_response.status_code == 200
+    db.session.refresh(admin)
     assert admin.totp_secret is not None

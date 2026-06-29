@@ -12,8 +12,12 @@ REGISTER_URL = "/api/auth/register"
 LOGIN_URL = "/api/auth/login"
 VERIFY_2FA_URL = "/api/auth/verify-2fa"
 LOGOUT_URL = "/api/auth/logout"
+REFRESH_URL = "/api/auth/refresh"
 PROFILE_URL = "/api/profile"
 CAPTCHA_URL = "/api/auth/captcha"
+RESUME_LIMITS_URL = "/api/resumes/limits"
+RESUME_TEMPLATES_URL = "/api/resumes/templates"
+RESUME_PREVIEW_URL = "/api/resumes/preview"
 
 
 def _solve_captcha(client):
@@ -89,6 +93,8 @@ def test_register_then_first_login_enrolls_2fa(client, db):
     assert data["challenge_token"]
     assert data["totp_secret"]
     assert data["totp_uri"].startswith("otpauth://totp/")
+    user = User.query.filter_by(email=VALID_USER["email"]).one()
+    assert user.totp_secret is None
 
     verify_resp = client.post(VERIFY_2FA_URL, json={
         "challenge_token": data["challenge_token"],
@@ -96,6 +102,37 @@ def test_register_then_first_login_enrolls_2fa(client, db):
     })
     assert verify_resp.status_code == 200
     assert "user" in verify_resp.get_json()
+    db.session.refresh(user)
+    assert user.totp_secret is not None
+
+
+def test_interrupted_first_login_can_restart_totp_enrollment(client, db):
+    assert client.post(REGISTER_URL, json=VALID_USER).status_code == 201
+
+    first = client.post(LOGIN_URL, json={
+        "email": VALID_USER["email"],
+        "password": VALID_USER["password"],
+    })
+    assert first.status_code == 202
+    user = User.query.filter_by(email=VALID_USER["email"]).one()
+    assert user.totp_secret is None
+
+    second = client.post(LOGIN_URL, json={
+        "email": VALID_USER["email"],
+        "password": VALID_USER["password"],
+    })
+    body = second.get_json()
+    assert second.status_code == 202
+    assert body["totp_secret"]
+    assert body["totp_uri"].startswith("otpauth://totp/")
+
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": body["challenge_token"],
+        "totp_code": pyotp.TOTP(body["totp_secret"]).now(),
+    })
+    assert verify_resp.status_code == 200
+    db.session.refresh(user)
+    assert user.totp_secret is not None
 
 
 def test_login_unknown_user_matches_wrong_password_shape(client, db, test_user):
@@ -110,6 +147,25 @@ def test_login_unknown_user_matches_wrong_password_shape(client, db, test_user):
     })
     assert unknown.status_code == wrong_pw.status_code == 401
     assert unknown.get_json() == wrong_pw.get_json()
+
+
+def test_captcha_threshold_does_not_enumerate_accounts(client, db, test_user):
+    for _ in range(3):
+        client.post(LOGIN_URL, json={
+            "email": test_user.email, "password": "WrongPass1!",
+        })
+
+    known = client.post(LOGIN_URL, json={
+        "email": test_user.email,
+        "password": "SecurePass1!",
+    })
+    unknown = client.post(LOGIN_URL, json={
+        "email": "nobody@example.com",
+        "password": "SecurePass1!",
+    })
+
+    assert known.status_code == unknown.status_code == 401
+    assert known.get_json() == unknown.get_json()
 
 
 def test_captcha_endpoint_returns_question_and_token(client, db):
@@ -132,7 +188,7 @@ def test_login_requires_captcha_after_threshold(client, db, test_user):
     blocked = client.post(LOGIN_URL, json={
         "email": test_user.email, "password": "SecurePass1!",
     })
-    assert blocked.status_code == 400
+    assert blocked.status_code == 401
     assert blocked.get_json()["show_captcha"] is True
 
     # A wrong CAPTCHA answer is rejected the same way.
@@ -141,7 +197,7 @@ def test_login_requires_captcha_after_threshold(client, db, test_user):
         "email": test_user.email, "password": "SecurePass1!",
         "captcha_token": token, "captcha_answer": "-999",
     })
-    assert bad.status_code == 400
+    assert bad.status_code == 401
 
     # A solved CAPTCHA + correct password proceeds to the 2FA step.
     token, answer = _solve_captcha(client)
@@ -246,6 +302,31 @@ def test_logout_revokes_access_and_refresh_tokens(client, db, test_user):
     assert replay_resp.get_json()["message"] == "Token has been revoked."
 
 
+def test_deactivated_user_cannot_refresh_or_use_existing_session(client, db, test_user):
+    _verify_resp, cookies = _login_with_2fa(client, test_user)
+
+    test_user.is_active = False
+    db.session.commit()
+
+    access_headers = {"X-CSRF-TOKEN": cookies.get("csrf_access_token", "")}
+    refresh_headers = {"X-CSRF-TOKEN": cookies.get("csrf_refresh_token", "")}
+
+    refresh_resp = client.post(REFRESH_URL, headers=refresh_headers)
+    profile_resp = client.get(PROFILE_URL, headers=access_headers)
+    limits_resp = client.get(RESUME_LIMITS_URL, headers=access_headers)
+    templates_resp = client.get(RESUME_TEMPLATES_URL, headers=access_headers)
+    preview_resp = client.post(RESUME_PREVIEW_URL, headers=access_headers, json={
+        "template_id": "modern",
+        "content_json": {},
+    })
+
+    assert refresh_resp.status_code == 403
+    assert profile_resp.status_code == 403
+    assert limits_resp.status_code == 403
+    assert templates_resp.status_code == 403
+    assert preview_resp.status_code == 403
+
+
 def test_logout_requires_auth(client, db):
     resp = client.post(LOGOUT_URL)
     assert resp.status_code == 401
@@ -311,4 +392,3 @@ def test_deactivated_user_cannot_login_directly(client, db, test_user):
     
     assert resp.status_code == 403
     assert "deactivated" in resp.get_json()["message"]
-
