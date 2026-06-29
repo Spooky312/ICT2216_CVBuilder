@@ -12,6 +12,8 @@ def create_app(env: str | None = None) -> Flask:
     env = env or os.environ.get("FLASK_ENV", "development")
     app = Flask(__name__, template_folder="templates")
     app.config.from_object(config_by_name[env])
+    if env != "testing" and not app.config.get("SQLALCHEMY_DATABASE_URI"):
+        raise RuntimeError("DATABASE_URL must be set for non-testing environments.")
 
     _init_extensions(app)
     _register_blueprints(app)
@@ -106,4 +108,3 @@ def _set_security_headers(app: Flask) -> None:
                 "max-age=31536000; includeSubDomains"
             )
         return response
-
