@@ -50,6 +50,16 @@ def test_pdf_worker_rejects_unsafe_cli_paths(path, expected_suffix, must_exist):
         )
 
 
+def test_pdf_worker_escapes_resume_fields_before_html_rendering():
+    rendered = pdf_worker._render_safe_html(
+        "<html><body>{{ resume.personal_info.full_name }}</body></html>",
+        {"personal_info": {"full_name": "<img src=x onerror=alert(1)>"}},
+    )
+
+    assert "<img src=x onerror=alert(1)>" not in rendered
+    assert "&lt;img src=x onerror=alert(1)&gt;" in rendered
+
+
 def test_saved_resume_export_uses_shared_content_renderer(monkeypatch):
     calls = {}
 
@@ -152,6 +162,38 @@ def test_empty_skills_do_not_render_skills_section(monkeypatch):
     assert "Python" in rendered[-1]
     # Rendering must wire in the blocking fetcher (no external resource loading).
     assert all(f is pdf_service._blocking_url_fetcher for f in fetchers)
+
+
+def test_pdf_service_escapes_resume_fields_before_pdf_rendering(monkeypatch):
+    rendered = []
+
+    class FakeHTML:
+        def __init__(self, string, url_fetcher=None):
+            rendered.append(string)
+
+        def write_pdf(self):
+            return b"%PDF rendered"
+
+    monkeypatch.setattr(pdf_service, "HTML", FakeHTML)
+
+    pdf_service.generate_pdf_from_content(
+        "modern",
+        {
+            "personal_info": {
+                "full_name": "<script>alert(1)</script>",
+                "email": "alice@example.com",
+            },
+            "education": [],
+            "experience": [],
+            "projects": [],
+            "skills": {"technical": [], "soft": [], "languages": [], "certifications": []},
+        },
+        timeout_seconds=0,
+    )
+
+    assert "<script>alert(1)</script>" not in rendered[-1]
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in rendered[-1]
+
 
 def test_pdf_timeout_covers_jinja_rendering(monkeypatch):
     def slow_render(template_src, context):

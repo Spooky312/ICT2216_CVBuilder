@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from app.services.pdf_safety import escape_pdf_context
+
 
 def _apply_resource_limits(timeout_seconds: int, memory_mb: int) -> None:
     try:
@@ -28,9 +30,19 @@ def _apply_resource_limits(timeout_seconds: int, memory_mb: int) -> None:
             pass
 
 
-def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
+def _render_safe_html(template_src: str, content_json: dict[str, Any]) -> str:
     from jinja2 import BaseLoader, select_autoescape
     from jinja2.sandbox import SandboxedEnvironment
+
+    env = SandboxedEnvironment(
+        loader=BaseLoader(),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    env.globals.clear()
+    return env.from_string(template_src).render(resume=escape_pdf_context(content_json))
+
+
+def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
     from weasyprint import HTML
     from weasyprint.urls import default_url_fetcher
 
@@ -42,13 +54,7 @@ def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
             return default_url_fetcher(url, *args, **kwargs)
         raise ValueError(f"Blocked external resource during PDF rendering: {url[:80]!r}")
 
-    env = SandboxedEnvironment(
-        loader=BaseLoader(),
-        autoescape=select_autoescape(["html", "xml"]),
-    )
-    env.globals.clear()
-
-    html_content = env.from_string(template_src).render(resume=content_json)
+    html_content = _render_safe_html(template_src, content_json)
     return HTML(string=html_content, url_fetcher=_blocking_url_fetcher).write_pdf()
 
 
