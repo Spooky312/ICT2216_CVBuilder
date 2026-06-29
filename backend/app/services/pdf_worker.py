@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
+from pathlib import Path
 from typing import Any
 
 
@@ -50,14 +52,35 @@ def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
     return HTML(string=html_content, url_fetcher=_blocking_url_fetcher).write_pdf()
 
 
+def _validate_worker_path(raw_path: str, *, expected_suffix: str, must_exist: bool) -> Path:
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    path = Path(raw_path)
+    if not path.is_absolute() or path.suffix != expected_suffix:
+        raise ValueError("Worker path must be an absolute temporary file with the expected suffix.")
+
+    resolved_path = path.resolve(strict=must_exist)
+    if not must_exist:
+        resolved_path.parent.resolve(strict=True)
+
+    if temp_root != resolved_path and temp_root not in resolved_path.parents:
+        raise ValueError("Worker path must stay inside the system temporary directory.")
+    return resolved_path
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         print("Usage: python -m app.services.pdf_worker INPUT_JSON OUTPUT_PDF", file=sys.stderr)
         return 2
 
-    input_path, output_path = sys.argv[1], sys.argv[2]
     try:
-        with open(input_path, "r", encoding="utf-8") as f:
+        input_path = _validate_worker_path(sys.argv[1], expected_suffix=".json", must_exist=True)
+        output_path = _validate_worker_path(sys.argv[2], expected_suffix=".pdf", must_exist=False)
+    except ValueError as exc:
+        print(f"Invalid PDF worker path: {exc}", file=sys.stderr)
+        return 3
+
+    try:
+        with input_path.open("r", encoding="utf-8") as f:
             payload = json.load(f)
     except Exception as exc:
         print(f"Failed to read PDF worker payload: {exc}", file=sys.stderr)
@@ -69,7 +92,7 @@ def main() -> int:
 
     try:
         pdf_bytes = _render_pdf(payload["template_src"], payload["content_json"])
-        with open(output_path, "wb") as f:
+        with output_path.open("wb") as f:
             f.write(pdf_bytes)
     except Exception as exc:
         print(f"PDF worker render failed: {type(exc).__name__}: {exc}", file=sys.stderr)

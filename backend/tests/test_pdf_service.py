@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.models.resume_template import ResumeTemplate
-from app.services import pdf_service
+from app.services import pdf_service, pdf_worker
 
 
 def test_blocking_url_fetcher_rejects_external_and_local_resources():
@@ -14,6 +14,40 @@ def test_blocking_url_fetcher_rejects_external_and_local_resources():
     # Inline data: URIs are still permitted (delegated to the default fetcher).
     result = pdf_service._blocking_url_fetcher("data:text/plain;base64,aGk=")
     assert result is not None
+
+
+def test_pdf_worker_accepts_backend_temp_paths(tmp_path):
+    payload_path = tmp_path / "payload.json"
+    output_path = tmp_path / "resume.pdf"
+    payload_path.write_text("{}", encoding="utf-8")
+
+    assert pdf_worker._validate_worker_path(
+        str(payload_path),
+        expected_suffix=".json",
+        must_exist=True,
+    ) == payload_path.resolve()
+    assert pdf_worker._validate_worker_path(
+        str(output_path),
+        expected_suffix=".pdf",
+        must_exist=False,
+    ) == output_path.resolve()
+
+
+@pytest.mark.parametrize(
+    ("path", "expected_suffix", "must_exist"),
+    [
+        ("/etc/passwd", ".json", True),
+        ("relative.json", ".json", True),
+        ("/tmp/payload.txt", ".json", False),
+    ],
+)
+def test_pdf_worker_rejects_unsafe_cli_paths(path, expected_suffix, must_exist):
+    with pytest.raises(ValueError):
+        pdf_worker._validate_worker_path(
+            path,
+            expected_suffix=expected_suffix,
+            must_exist=must_exist,
+        )
 
 
 def test_saved_resume_export_uses_shared_content_renderer(monkeypatch):
