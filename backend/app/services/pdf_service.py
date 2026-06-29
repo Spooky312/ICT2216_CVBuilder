@@ -16,6 +16,7 @@ from jinja2.sandbox import SandboxedEnvironment
 from weasyprint import HTML
 from weasyprint.urls import default_url_fetcher
 
+from app.services.pdf_safety import escape_pdf_context
 from app.services.template_service import BUILTIN_TEMPLATE_FILES, get_template
 
 if TYPE_CHECKING:
@@ -79,7 +80,7 @@ def _blocking_url_fetcher(url: str, *args: Any, **kwargs: Any) -> dict[str, Any]
 
 def _safe_render(template_src: str, context: dict[str, Any]) -> str:
     tmpl = _JINJA_ENV.from_string(template_src)
-    return tmpl.render(**context)
+    return tmpl.render(**escape_pdf_context(context))
 
 
 def _render_pdf(template_src: str, content_json: dict[str, Any]) -> bytes:
