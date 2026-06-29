@@ -7,11 +7,10 @@ backend/.env, never in source):
     ADMIN_PASSWORD       (required -- seeding is skipped if unset)
     ADMIN_NAME           (default: Administrator)
     ADMIN_RESET_PASSWORD (default: false) -- reset pw on an existing admin
-    ADMIN_SHOW_TOTP      (default: true)  -- print TOTP secret on first provision
 
-This app enforces TOTP two-factor on every login, so the script provisions a
-TOTP secret and prints the otpauth:// enrolment URI. Scan it into an
-authenticator app (Google Authenticator, Authy, etc.) to complete login.
+This app enforces TOTP two-factor on every login. The seed script enables 2FA
+for the admin account but leaves enrolment to the normal first-login flow, which
+returns the authenticator QR/URI to the browser without writing secrets to logs.
 
 Usage:
     docker compose exec backend python seed_admin.py
@@ -25,12 +24,6 @@ import sys
 from app import create_app
 from app.extensions import db
 from app.models.user import User
-from app.utils.totp import (
-    decrypt_totp_secret,
-    encrypt_totp_secret,
-    generate_totp_secret,
-    provisioning_uri,
-)
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -65,15 +58,6 @@ def seed_admin() -> None:
     user.is_active = True
     user.totp_enabled = True
 
-    # Ensure a TOTP secret exists (2FA is mandatory on login).
-    if user.totp_secret:
-        secret = decrypt_totp_secret(user.totp_secret)
-        newly_provisioned_totp = False
-    else:
-        secret = generate_totp_secret()
-        user.totp_secret = encrypt_totp_secret(secret)
-        newly_provisioned_totp = True
-
     db.session.commit()
 
     action = "Created" if created else "Updated"
@@ -81,14 +65,8 @@ def seed_admin() -> None:
     print(f"[seed_admin]   role={user.role} is_active={user.is_active}")
     if not (created or reset_password):
         print("[seed_admin]   password left unchanged (set ADMIN_RESET_PASSWORD=true to reset)")
-
-    # The password is never echoed. The TOTP secret is only shown when first
-    # provisioned, since it must be enrolled into an authenticator app exactly
-    # once. Set ADMIN_SHOW_TOTP=false to suppress it from logs entirely.
-    if newly_provisioned_totp and _env_flag("ADMIN_SHOW_TOTP", default=True):
-        print(f"[seed_admin]   TOTP secret: {secret}")
-        print(f"[seed_admin]   TOTP enrol:  {provisioning_uri(email, secret)}")
-        print("[seed_admin]   ^ enrol this now; it will not be shown again.")
+    if not user.totp_secret:
+        print("[seed_admin]   2FA enrolment will be completed on first login.")
 
 
 def main() -> None:
