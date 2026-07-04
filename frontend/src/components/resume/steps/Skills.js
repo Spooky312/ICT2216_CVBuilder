@@ -47,18 +47,25 @@ export default function Skills({ data, onChange, errors = {}, onFieldBlur }) {
 
   // Keep certifications as raw text while the user is typing so that pressing
   // Enter to go to a new line isn't immediately swallowed by filter(Boolean).
-  // We convert to array only when the textarea loses focus.
+  // The parent state still receives the parsed list on each change so Preview
+  // and Save cannot race with a pending blur event.
   const [rawCerts, setRawCerts] = useState(
     () => (skills.certifications || []).join('\n')
   );
 
-  const onCertBlur = () => {
-    const parsed = rawCerts
+  const parseCertifications = (raw) => raw
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
       .slice(0, 10);
-    set('certifications')(parsed);
+
+  const onCertChange = (raw) => {
+    setRawCerts(raw);
+    set('certifications')(parseCertifications(raw));
+  };
+
+  const onCertBlur = () => {
+    set('certifications')(parseCertifications(rawCerts));
   };
 
   return (
@@ -80,7 +87,7 @@ export default function Skills({ data, onChange, errors = {}, onFieldBlur }) {
           id="skills-certifications"
           rows={4}
           value={rawCerts}
-          onChange={(e) => setRawCerts(e.target.value)}
+          onChange={(e) => onCertChange(e.target.value)}
           onBlur={() => {
             onCertBlur();
             window.requestAnimationFrame(() => onFieldBlur('certifications'));

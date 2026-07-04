@@ -10,7 +10,8 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
 
   // Keep a raw string per entry for the technologies field so the user can
   // type "Python, React" freely without the comma being consumed immediately.
-  // We only parse into an array when the field loses focus (onBlur).
+  // The parent state still receives the parsed list on each change so Preview
+  // and Save cannot race with a pending blur event.
   const [rawTechs, setRawTechs] = useState(
     () => items.reduce((acc, proj, i) => ({
       ...acc,
@@ -41,18 +42,18 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
     onChange(next);
   };
 
-  // Update display text while typing — does NOT parse yet
+  const parseTechnologies = (raw) => raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   const onTechChange = (i, raw) => {
     setRawTechs((prev) => ({ ...prev, [i]: raw }));
+    update(i, 'technologies', parseTechnologies(raw));
   };
 
-  // Parse into array only when the field loses focus
   const onTechBlur = (i) => {
-    const parsed = (rawTechs[i] || '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    update(i, 'technologies', parsed);
+    update(i, 'technologies', parseTechnologies(rawTechs[i] || ''));
   };
 
   return (
