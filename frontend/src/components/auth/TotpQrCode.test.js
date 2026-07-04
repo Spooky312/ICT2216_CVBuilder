@@ -3,7 +3,8 @@ import { render, screen } from '@testing-library/react';
 import TotpQrCode from './TotpQrCode';
 
 vi.mock('qrcode.react', () => ({
-  QRCodeSVG: (props) => <svg data-testid="qr-svg" data-value={props.value} />,
+  // eslint-disable-next-line react/prop-types -- test-only mock, not a real component
+  QRCodeSVG: ({ value }) => <svg data-testid="qr-svg" data-value={value} />,
 }));
 
 describe('TotpQrCode', () => {
