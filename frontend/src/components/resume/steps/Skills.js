@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import FieldError from '../../common/FieldError';
+import PropTypes from 'prop-types';
 
 function TagInput({ id, label, values, onChange, max = 30, error, onBlur }) {
   const [input, setInput] = useState('');
@@ -100,3 +101,20 @@ export default function Skills({ data, onChange, errors = {}, onFieldBlur }) {
     </div>
   );
 }
+
+TagInput.propTypes = {
+  id: PropTypes.string,
+  label: PropTypes.string,
+  values: PropTypes.array,
+  onChange: PropTypes.func.isRequired,
+  max: PropTypes.number,
+  error: PropTypes.string,
+  onBlur: PropTypes.func,
+};
+
+Skills.propTypes = {
+  data: PropTypes.object,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  onFieldBlur: PropTypes.func,
+};

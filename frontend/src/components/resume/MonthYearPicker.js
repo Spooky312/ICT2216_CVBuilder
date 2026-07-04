@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FieldError, { errorProps } from '../common/FieldError';
+import PropTypes from 'prop-types';
 
 const MONTHS = [
   ['01', 'Jan'], ['02', 'Feb'], ['03', 'Mar'], ['04', 'Apr'],
@@ -120,3 +121,15 @@ export default function MonthYearPicker({
     </div>
   );
 }
+
+MonthYearPicker.propTypes = {
+  id: PropTypes.string,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  onBlur: PropTypes.func,
+  allowPresent: PropTypes.bool,
+  presentLabel: PropTypes.string,
+  errors: PropTypes.object,
+  errorName: PropTypes.string,
+};

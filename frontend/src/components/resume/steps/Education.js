@@ -2,6 +2,7 @@ import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
+import PropTypes from 'prop-types';
 
 const BLANK = { institution: '', degree: '', field_of_study: '', start_date: '', end_date: '', gpa: '', description: '' };
 
@@ -83,3 +84,10 @@ export default function Education({ data, onChange, errors = {}, onFieldBlur }) 
     </div>
   );
 }
+
+Education.propTypes = {
+  data: PropTypes.array,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  onFieldBlur: PropTypes.func,
+};

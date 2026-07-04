@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Spinner from './Spinner';
+import PropTypes from 'prop-types';
 
 export function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -17,3 +18,11 @@ export function AdminRoute({ children }) {
   if (user.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return children;
 }
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node,
+};
+
+AdminRoute.propTypes = {
+  children: PropTypes.node,
+};

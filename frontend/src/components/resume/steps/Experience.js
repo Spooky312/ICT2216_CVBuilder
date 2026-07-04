@@ -2,6 +2,7 @@ import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
+import PropTypes from 'prop-types';
 
 const BLANK = { company: '', position: '', location: '', start_date: '', end_date: '', description: '', achievements: [] };
 
@@ -107,3 +108,10 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
     </div>
   );
 }
+
+Experience.propTypes = {
+  data: PropTypes.array,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  onFieldBlur: PropTypes.func,
+};

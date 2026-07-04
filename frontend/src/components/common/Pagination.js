@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 /**
  * Pagination — Prev / Page-of-N / Next controls.
@@ -30,3 +31,9 @@ export default function Pagination({ page, totalPages, onPage }) {
     </div>
   );
 }
+
+Pagination.propTypes = {
+  page: PropTypes.number.isRequired,
+  totalPages: PropTypes.number.isRequired,
+  onPage: PropTypes.func.isRequired,
+};

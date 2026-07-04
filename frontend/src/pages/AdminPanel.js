@@ -6,6 +6,7 @@ import {
 } from '../services/api';
 import Spinner from '../components/common/Spinner';
 import Pagination from '../components/common/Pagination';
+import PropTypes from 'prop-types';
 
 function fmtDate(iso) {
   if (!iso) return '-';
@@ -685,3 +686,26 @@ export default function AdminPanel() {
     </div>
   );
 }
+
+StatsBar.propTypes = {
+  users: PropTypes.array,
+  logs: PropTypes.array,
+};
+
+UsersTab.propTypes = {
+  users: PropTypes.array,
+  setUsers: PropTypes.func,
+  onRefresh: PropTypes.func,
+};
+
+LogsTab.propTypes = {
+  logs: PropTypes.array,
+  filters: PropTypes.object,
+  onApplyFilters: PropTypes.func,
+  onRefresh: PropTypes.func,
+};
+
+TemplatesTab.propTypes = {
+  templates: PropTypes.array,
+  setTemplates: PropTypes.func,
+};

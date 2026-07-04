@@ -20,14 +20,14 @@ import {
 
 const TOTAL_STEPS = RESUME_STEPS.length;
 
-function errorPathLabel(key) {
+export function errorPathLabel(key) {
   return /^\d+$/.test(key)
     ? `entry ${Number.parseInt(key, 10) + 1}`
     : key.replaceAll('_', ' ');
 }
 
 // Recursively collect all leaf error strings from a nested Marshmallow error object.
-function flattenErrors(obj, path = []) {
+export function flattenErrors(obj, path = []) {
   if (Array.isArray(obj)) return obj.map((msg) => `${path.join(' → ')}: ${msg}`);
   if (typeof obj === 'string') return [`${path.join(' → ')}: ${obj}`];
   if (obj && typeof obj === 'object') {
@@ -38,7 +38,7 @@ function flattenErrors(obj, path = []) {
   return [];
 }
 
-function pruneVisibleErrors(visibleErrors, currentErrors) {
+export function pruneVisibleErrors(visibleErrors, currentErrors) {
   return Object.keys(visibleErrors).reduce((next, field) => {
     if (currentErrors[field]) next[field] = currentErrors[field];
     return next;

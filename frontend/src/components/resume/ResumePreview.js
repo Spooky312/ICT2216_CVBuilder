@@ -1,5 +1,6 @@
 import React from 'react';
 import Spinner from '../common/Spinner';
+import PropTypes from 'prop-types';
 
 export default function ResumePreview({ url, loading, error, stale, paused, onClose }) {
   let statusMessage;
@@ -52,3 +53,12 @@ export default function ResumePreview({ url, loading, error, stale, paused, onCl
     </aside>
   );
 }
+
+ResumePreview.propTypes = {
+  url: PropTypes.string,
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+  stale: PropTypes.bool,
+  paused: PropTypes.bool,
+  onClose: PropTypes.func.isRequired,
+};

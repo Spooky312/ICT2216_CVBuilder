@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
+import PropTypes from 'prop-types';
 
 const BLANK = { name: '', description: '', technologies: [], url: '', start_date: '', end_date: '' };
 
@@ -138,3 +139,10 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
     </div>
   );
 }
+
+Projects.propTypes = {
+  data: PropTypes.array,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  onFieldBlur: PropTypes.func,
+};

@@ -54,7 +54,7 @@ export default [
       'no-unused-vars': ['error', { varsIgnorePattern: '^React$' }],
       'no-useless-escape': 'off',
       'react/no-unescaped-entities': 'off',
-      'react/prop-types': 'off',
+      'react/prop-types': 'error',
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',
     },

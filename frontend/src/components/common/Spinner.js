@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 export default function Spinner({ size = 24 }) {
   return (
@@ -14,3 +15,7 @@ export default function Spinner({ size = 24 }) {
     </svg>
   );
 }
+
+Spinner.propTypes = {
+  size: PropTypes.number,
+};
