@@ -3,12 +3,15 @@ __pycache__/
 *.py[cod]
 *.pyo
 .venv/
+.venv-test/
 venv/
 *.egg-info/
 dist/
 build/
 .pytest_cache/
 .coverage
+coverage.xml
+coverage.json
 htmlcov/
 
 # Environment secrets — NEVER commit these
@@ -19,6 +22,7 @@ htmlcov/
 # Node
 node_modules/
 frontend/build/
+frontend/coverage/
 
 # Database
 *.sqlite3

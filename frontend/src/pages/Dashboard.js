@@ -15,7 +15,7 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-function renamedResumes(prev, resume, updatedResume) {
+export function renamedResumes(prev, resume, updatedResume) {
   return prev.map((item) => (
     item.resume_id === resume.resume_id
       ? {
@@ -27,7 +27,7 @@ function renamedResumes(prev, resume, updatedResume) {
   ));
 }
 
-function withoutResume(prev, id) {
+export function withoutResume(prev, id) {
   return prev.filter((resume) => resume.resume_id !== id);
 }
 
@@ -99,7 +99,7 @@ export default function Dashboard() {
   });
 
   const handleDelete = (id) => withAction(`${id}:delete`, async () => {
-    if (!window.confirm('Delete this resume? This cannot be undone.')) return;
+    if (!globalThis.confirm('Delete this resume? This cannot be undone.')) return;
     await deleteResume(id);
     setResumes((prev) => withoutResume(prev, id));
   });

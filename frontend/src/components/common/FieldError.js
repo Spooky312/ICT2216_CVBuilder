@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 export function errorProps(errors, name, inputId) {
   const invalid = Boolean(errors?.[name]);
@@ -12,3 +13,9 @@ export default function FieldError({ errors, name, inputId }) {
   if (!errors?.[name]) return null;
   return <small id={`${inputId}-error`} className="field-error">{errors[name]}</small>;
 }
+
+FieldError.propTypes = {
+  errors: PropTypes.object,
+  name: PropTypes.string.isRequired,
+  inputId: PropTypes.string,
+};

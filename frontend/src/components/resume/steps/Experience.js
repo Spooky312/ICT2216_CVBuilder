@@ -2,6 +2,7 @@ import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
+import PropTypes from 'prop-types';
 
 const BLANK = { company: '', position: '', location: '', start_date: '', end_date: '', description: '', achievements: [] };
 
@@ -73,11 +74,11 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
           <div className="form-row">
             <MonthYearPicker id={`experience-${i}-start`} label="Start Date" value={exp.start_date}
               onChange={(value) => update(i, 'start_date', value)}
-              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
+              onBlur={() => globalThis.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
               errors={errors} errorName={`${i}.start_date`} />
             <MonthYearPicker id={`experience-${i}-end`} label="End Date" value={exp.end_date}
               onChange={(value) => update(i, 'end_date', value)}
-              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
+              onBlur={() => globalThis.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
               allowPresent presentLabel="Currently working here"
               errors={errors} errorName={`${i}.end_date`} />
           </div>
@@ -88,7 +89,7 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
           </div>
           <div className="form-group">
             <div className="step-form-header" style={{ marginBottom: '0.5rem' }}>
-              <label>Key Achievements</label>
+              <span className="form-group-label">Key Achievements</span>
               <button type="button" className="btn-secondary-sm"
                 onClick={() => addAchievement(i)}
                 disabled={(exp.achievements || []).length >= 10}>+ Add</button>
@@ -107,3 +108,10 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
     </div>
   );
 }
+
+Experience.propTypes = {
+  data: PropTypes.array,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  onFieldBlur: PropTypes.func,
+};

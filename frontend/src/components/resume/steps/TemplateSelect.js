@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 // import React from 'react';
 // import FieldError from '../../common/FieldError';
 
@@ -118,3 +119,9 @@ export default function TemplateSelect({ selected, onChange, errors = {} }) {
     </div>
   );
 }
+
+TemplateSelect.propTypes = {
+  selected: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+};

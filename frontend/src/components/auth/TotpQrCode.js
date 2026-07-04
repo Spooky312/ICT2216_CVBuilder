@@ -1,4 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react';
+import PropTypes from 'prop-types';
 
 export default function TotpQrCode({ uri }) {
   if (!uri) return null;
@@ -18,3 +19,7 @@ export default function TotpQrCode({ uri }) {
     </div>
   );
 }
+
+TotpQrCode.propTypes = {
+  uri: PropTypes.string.isRequired,
+};

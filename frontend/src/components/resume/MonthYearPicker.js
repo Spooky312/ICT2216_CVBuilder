@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import FieldError, { errorProps } from '../common/FieldError';
+import PropTypes from 'prop-types';
 
 const MONTHS = [
   ['01', 'Jan'], ['02', 'Feb'], ['03', 'Mar'], ['04', 'Apr'],
@@ -8,7 +9,7 @@ const MONTHS = [
 ];
 
 function parseDate(value) {
-  const match = String(value || '').match(/^(\d{4})(?:-(\d{2}))?$/);
+  const match = /^(\d{4})(?:-(\d{2}))?$/.exec(String(value || ''));
   return {
     year: match ? Number(match[1]) : new Date().getFullYear(),
     month: match?.[2] || '',
@@ -64,7 +65,7 @@ export default function MonthYearPicker({
     onChange(nextValue);
     setOpen(false);
     onBlur?.();
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
+    globalThis.requestAnimationFrame(() => triggerRef.current?.focus());
   };
 
   return (
@@ -120,3 +121,15 @@ export default function MonthYearPicker({
     </div>
   );
 }
+
+MonthYearPicker.propTypes = {
+  id: PropTypes.string,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  onBlur: PropTypes.func,
+  allowPresent: PropTypes.bool,
+  presentLabel: PropTypes.string,
+  errors: PropTypes.object,
+  errorName: PropTypes.string,
+};

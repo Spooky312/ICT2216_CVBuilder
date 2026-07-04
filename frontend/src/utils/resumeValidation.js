@@ -41,9 +41,14 @@ function normaliseWebUrl(value) {
   if (/\s/.test(clean)) return null;
   if (/^[a-z][a-z\d+.-]*:/i.test(clean) && !/^https?:\/\//i.test(clean)) return null;
 
-  const candidate = /^https?:\/\//i.test(clean)
-    ? clean
-    : (clean.startsWith('//') ? `https:${clean}` : `https://${clean}`);
+  let candidate;
+  if (/^https?:\/\//i.test(clean)) {
+    candidate = clean;
+  } else if (clean.startsWith('//')) {
+    candidate = `https:${clean}`;
+  } else {
+    candidate = `https://${clean}`;
+  }
   try {
     const parsed = new URL(candidate);
     if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return null;

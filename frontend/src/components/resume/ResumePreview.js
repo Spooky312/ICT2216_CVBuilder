@@ -1,7 +1,17 @@
 import React from 'react';
 import Spinner from '../common/Spinner';
+import PropTypes from 'prop-types';
 
 export default function ResumePreview({ url, loading, error, stale, paused, onClose }) {
+  let statusMessage;
+  if (paused) {
+    statusMessage = 'Complete the required fields to refresh the preview.';
+  } else if (stale) {
+    statusMessage = 'Your latest changes will appear shortly.';
+  } else {
+    statusMessage = 'This matches the exported PDF.';
+  }
+
   return (
     <aside className="resume-preview" aria-label="Resume preview">
       <div className="resume-preview-header">
@@ -11,9 +21,7 @@ export default function ResumePreview({ url, loading, error, stale, paused, onCl
             {paused && <span className="preview-stale-badge">Waiting for valid fields</span>}
             {!paused && stale && <span className="preview-stale-badge">Updating automatically</span>}
           </div>
-          <p>{paused
-            ? 'Complete the required fields to refresh the preview.'
-            : (stale ? 'Your latest changes will appear shortly.' : 'This matches the exported PDF.')}</p>
+          <p>{statusMessage}</p>
         </div>
         <button type="button" className="preview-close" onClick={onClose}
           aria-label="Close resume preview">
@@ -45,3 +53,12 @@ export default function ResumePreview({ url, loading, error, stale, paused, onCl
     </aside>
   );
 }
+
+ResumePreview.propTypes = {
+  url: PropTypes.string,
+  loading: PropTypes.bool,
+  error: PropTypes.string,
+  stale: PropTypes.bool,
+  paused: PropTypes.bool,
+  onClose: PropTypes.func.isRequired,
+};

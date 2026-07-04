@@ -6,7 +6,7 @@ import secrets
 from typing import Any
 
 from flask import current_app
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 _PURPOSE = "login-captcha"
 _SALT = "cvbuilder-captcha"
@@ -44,7 +44,7 @@ def verify_captcha(token: str | None, answer: str | None) -> bool:
             token,
             max_age=current_app.config.get("CAPTCHA_CHALLENGE_EXPIRES", 120),
         )
-    except (BadSignature, SignatureExpired):
+    except BadSignature:
         return False
     if data.get("purpose") != _PURPOSE:
         return False

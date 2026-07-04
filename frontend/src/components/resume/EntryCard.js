@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 /**
  * EntryCard — shared card wrapper for wizard list entries (Education, Experience, Projects).
@@ -20,3 +21,10 @@ export default function EntryCard({ index, label = 'Entry', onRemove, children }
     </div>
   );
 }
+
+EntryCard.propTypes = {
+  index: PropTypes.number,
+  label: PropTypes.string,
+  onRemove: PropTypes.func.isRequired,
+  children: PropTypes.node,
+};

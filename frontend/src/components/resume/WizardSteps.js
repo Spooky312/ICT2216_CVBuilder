@@ -1,5 +1,6 @@
 import React from 'react';
 import { RESUME_STEPS } from './resumeSteps';
+import PropTypes from 'prop-types';
 
 export default function WizardSteps({ current }) {
   return (
@@ -18,3 +19,7 @@ export default function WizardSteps({ current }) {
     </div>
   );
 }
+
+WizardSteps.propTypes = {
+  current: PropTypes.number.isRequired,
+};

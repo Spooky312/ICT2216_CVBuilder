@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import FieldError, { errorProps } from '../common/FieldError';
+import PropTypes from 'prop-types';
 
 const COUNTRY_CODES = [
   ['+1', 'North America & Caribbean'],
@@ -272,3 +273,16 @@ export default function PhoneInput({ value, onChange, onBlur, errors }) {
     </fieldset>
   );
 }
+
+CountryCodeCombobox.propTypes = {
+  value: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  onBlur: PropTypes.func,
+};
+
+PhoneInput.propTypes = {
+  value: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  onBlur: PropTypes.func,
+  errors: PropTypes.object,
+};

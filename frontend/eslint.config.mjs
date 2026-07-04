@@ -12,13 +12,13 @@ const browserGlobals = {
   fetch: 'readonly',
   FileReader: 'readonly',
   FormData: 'readonly',
+  globalThis: 'readonly',
   localStorage: 'readonly',
   navigator: 'readonly',
   setInterval: 'readonly',
   setTimeout: 'readonly',
   URL: 'readonly',
   URLSearchParams: 'readonly',
-  window: 'readonly',
 };
 
 export default [
@@ -54,7 +54,7 @@ export default [
       'no-unused-vars': ['error', { varsIgnorePattern: '^React$' }],
       'no-useless-escape': 'off',
       'react/no-unescaped-entities': 'off',
-      'react/prop-types': 'off',
+      'react/prop-types': 'error',
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',
     },

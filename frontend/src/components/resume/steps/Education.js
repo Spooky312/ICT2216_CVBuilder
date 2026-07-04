@@ -2,6 +2,7 @@ import React from 'react';
 import EntryCard from '../EntryCard';
 import FieldError, { errorProps } from '../../common/FieldError';
 import MonthYearPicker from '../MonthYearPicker';
+import PropTypes from 'prop-types';
 
 const BLANK = { institution: '', degree: '', field_of_study: '', start_date: '', end_date: '', gpa: '', description: '' };
 
@@ -65,11 +66,11 @@ export default function Education({ data, onChange, errors = {}, onFieldBlur }) 
           <div className="form-row">
             <MonthYearPicker id={`education-${i}-start`} label="Start Date" value={edu.start_date}
               onChange={(value) => update(i, 'start_date', value)}
-              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
+              onBlur={() => globalThis.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
               errors={errors} errorName={`${i}.start_date`} />
             <MonthYearPicker id={`education-${i}-end`} label="End Date" value={edu.end_date}
               onChange={(value) => update(i, 'end_date', value)}
-              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
+              onBlur={() => globalThis.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
               allowPresent presentLabel="Currently studying here"
               errors={errors} errorName={`${i}.end_date`} />
           </div>
@@ -83,3 +84,10 @@ export default function Education({ data, onChange, errors = {}, onFieldBlur }) 
     </div>
   );
 }
+
+Education.propTypes = {
+  data: PropTypes.array,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  onFieldBlur: PropTypes.func,
+};

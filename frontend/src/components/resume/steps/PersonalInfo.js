@@ -1,6 +1,7 @@
 import React from 'react';
 import FieldError, { errorProps } from '../../common/FieldError';
 import PhoneInput from '../PhoneInput';
+import PropTypes from 'prop-types';
 
 export default function PersonalInfo({ data, onChange, errors = {}, onFieldBlur }) {
   const set = (field) => (e) => onChange({ ...data, [field]: e.target.value });
@@ -62,3 +63,10 @@ export default function PersonalInfo({ data, onChange, errors = {}, onFieldBlur 
     </div>
   );
 }
+
+PersonalInfo.propTypes = {
+  data: PropTypes.object,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  onFieldBlur: PropTypes.func,
+};

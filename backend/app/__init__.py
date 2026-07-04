@@ -65,7 +65,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(resumes_bp)
     app.register_blueprint(admin_bp)
 
-    @app.route("/health")
+    @app.route("/health", methods=["GET"])
     def health() -> tuple[Response, int]:
         return jsonify({"status": "ok"}), 200
 
