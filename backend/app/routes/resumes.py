@@ -12,9 +12,14 @@ from app.schemas.resume_schema import (
 from app.services.pdf_service import generate_pdf, generate_pdf_from_content
 from app.services.template_service import get_active_template, list_templates
 from app.utils.audit import log_event
-from app.utils.helpers import active_jwt_required, current_user_id, get_current_user_or_404, load_or_422
+from app.utils.helpers import (
+    active_jwt_required, current_user_id, get_current_user_or_404, load_or_422,
+)
 
 resumes_bp = Blueprint("resumes", __name__, url_prefix="/api/resumes")
+
+USER_NOT_FOUND = "User not found."
+RESUME_NOT_FOUND = "Resume not found."
 
 create_schema = CreateResumeSchema()
 update_schema = UpdateResumeSchema()
@@ -33,12 +38,18 @@ def _get_owned_resume(resume_id: str, user_id: uuid.UUID) -> Resume | None:
     return Resume.query.filter_by(resume_id=rid, user_id=user_id).first()
 
 
-def _check_resume_limit(user_id: uuid.UUID) -> tuple[None, None] | tuple[None, tuple[Response, int]]:
+def _check_resume_limit(
+    user_id: uuid.UUID,
+) -> tuple[None, None] | tuple[None, tuple[Response, int]]:
     max_r = _max_resumes()
     count = Resume.query.filter_by(user_id=user_id).count()
     if count >= max_r:
         return None, (jsonify({"message": f"Maximum {max_r} resumes allowed."}), 409)
     return None, None
+
+
+def _resume_not_found_response() -> tuple[Response, int]:
+    return jsonify({"message": RESUME_NOT_FOUND}), 404
 
 
 def _template_or_422(template_id: str) -> tuple[None, None] | tuple[None, tuple[Response, int]]:
@@ -114,7 +125,7 @@ def create_resume() -> tuple[Response, int]:
 
     user = _locked_current_user()
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
 
     _, limit_err = _check_resume_limit(user.user_id)
     if limit_err:
@@ -142,7 +153,7 @@ def get_resume(resume_id: str) -> tuple[Response, int]:
 
     resume = _get_owned_resume(resume_id, user.user_id)
     if not resume:
-        return jsonify({"message": "Resume not found."}), 404
+        return _resume_not_found_response()
 
     return jsonify(resume.to_dict()), 200
 
@@ -156,7 +167,7 @@ def update_resume(resume_id: str) -> tuple[Response, int]:
 
     resume = _get_owned_resume(resume_id, user.user_id)
     if not resume:
-        return jsonify({"message": "Resume not found."}), 404
+        return _resume_not_found_response()
 
     data, err = load_or_422(update_schema, request.get_json(force=True) or {})
     if err:
@@ -188,7 +199,7 @@ def delete_resume(resume_id: str) -> tuple[Response, int]:
 
     resume = _get_owned_resume(resume_id, user.user_id)
     if not resume:
-        return jsonify({"message": "Resume not found."}), 404
+        return _resume_not_found_response()
 
     rid = str(resume.resume_id)
     db.session.delete(resume)
@@ -202,7 +213,7 @@ def delete_resume(resume_id: str) -> tuple[Response, int]:
 def duplicate_resume(resume_id: str) -> tuple[Response, int]:
     user = _locked_current_user()
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
 
     _, limit_err = _check_resume_limit(user.user_id)
     if limit_err:
@@ -210,7 +221,7 @@ def duplicate_resume(resume_id: str) -> tuple[Response, int]:
 
     resume = _get_owned_resume(resume_id, user.user_id)
     if not resume:
-        return jsonify({"message": "Resume not found."}), 404
+        return _resume_not_found_response()
 
     copy = Resume(
         user_id=user.user_id,
@@ -235,7 +246,7 @@ def export_resume(resume_id: str) -> tuple[Response, int] | Response:
 
     resume = _get_owned_resume(resume_id, user.user_id)
     if not resume:
-        return jsonify({"message": "Resume not found."}), 404
+        return _resume_not_found_response()
 
     try:
         pdf_bytes = generate_pdf(
@@ -247,7 +258,7 @@ def export_resume(resume_id: str) -> tuple[Response, int] | Response:
                   metadata={"error": "timeout"})
         return jsonify({"message": "PDF generation timed out. Please try again."}), 504
     except Exception as exc:
-        current_app.logger.exception("PDF generation failed for resume %s", resume_id)
+        current_app.logger.exception("PDF generation failed for owned resume")
         log_event("pdf_generation_failed", user_id=user.user_id,
                   metadata={"error": type(exc).__name__})
         return jsonify({"message": "PDF generation failed."}), 500

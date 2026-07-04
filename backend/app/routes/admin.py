@@ -25,6 +25,13 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 _F = TypeVar("_F", bound=Callable[..., tuple[Response, int]])
 
+USER_NOT_FOUND = "User not found."
+TEMPLATE_NAME_ERROR = "Name must be 1-80 characters."
+TEMPLATE_DESCRIPTION_ERROR = "Description must be 250 characters or fewer."
+CORE_TEMPLATE_DELETE_ERROR = (
+    "Cannot delete core built-in templates. You can only deactivate them."
+)
+
 
 def admin_required(fn: _F) -> _F:
     @wraps(fn)
@@ -49,7 +56,12 @@ def _is_self(user: User) -> bool:
     return user.user_id == current_user_id()
 
 
-def _parse_audit_datetime(value: str | None, field: str, *, end_of_day: bool = False) -> tuple[datetime | None, list[str] | None]:
+def _parse_audit_datetime(
+    value: str | None,
+    field: str,
+    *,
+    end_of_day: bool = False,
+) -> tuple[datetime | None, list[str] | None]:
     if not value:
         return None, None
 
@@ -90,7 +102,7 @@ def list_users() -> tuple[Response, int]:
 def lock_user(user_id: str) -> tuple[Response, int]:
     user = _get_target_user(user_id)
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
     if _is_self(user):
         return jsonify({"message": "You cannot lock your own admin account."}), 400
     if not user.is_active:
@@ -114,7 +126,7 @@ def lock_user(user_id: str) -> tuple[Response, int]:
 def unlock_user(user_id: str) -> tuple[Response, int]:
     user = _get_target_user(user_id)
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
     if not user.is_active:
         return jsonify({"message": "Cannot unlock a deactivated account."}), 400
 
@@ -131,7 +143,7 @@ def unlock_user(user_id: str) -> tuple[Response, int]:
 def deactivate_user(user_id: str) -> tuple[Response, int]:
     user = _get_target_user(user_id)
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
     if _is_self(user):
         return jsonify({"message": "You cannot deactivate your own admin account."}), 400
 
@@ -149,7 +161,7 @@ def deactivate_user(user_id: str) -> tuple[Response, int]:
 def delete_user(user_id: str) -> tuple[Response, int]:
     user = _get_target_user(user_id)
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
     if _is_self(user):
         return jsonify({"message": "You cannot delete your own admin account."}), 400
 
@@ -203,6 +215,7 @@ def get_audit_log() -> tuple[Response, int]:
     paginated = query.paginate(page=page, per_page=per_page, error_out=False)
     return paginate_response("logs", paginated, page, lambda e: e.to_dict())
 
+
 @admin_bp.route("/audit-log/cleanup", methods=["DELETE"])
 @admin_required
 def cleanup_audit_logs() -> tuple[Response, int]:
@@ -213,7 +226,9 @@ def cleanup_audit_logs() -> tuple[Response, int]:
 
     # Security guardrail: Require at least 90 days of retention
     if days < 90:
-        return jsonify({"message": "Security policy requires retaining at least 90 days of audit logs."}), 403
+        return jsonify({
+            "message": "Security policy requires retaining at least 90 days of audit logs.",
+        }), 403
 
     deleted_count = AuditLog.cleanup_old_logs(days)
 
@@ -226,11 +241,21 @@ def cleanup_audit_logs() -> tuple[Response, int]:
         "deleted_count": deleted_count
     }), 200
 
+
 @admin_bp.route("/templates", methods=["GET"])
 @admin_required
 def list_admin_templates() -> tuple[Response, int]:
     templates = [template.to_dict() for template in list_templates(active_only=False)]
     return jsonify(templates), 200
+
+
+def _template_metadata_errors(name: str, description: str) -> dict[str, list[str]]:
+    errors: dict[str, list[str]] = {}
+    if not 1 <= len(name) <= 80:
+        errors["name"] = [TEMPLATE_NAME_ERROR]
+    if len(description) > 250:
+        errors["description"] = [TEMPLATE_DESCRIPTION_ERROR]
+    return errors
 
 
 @admin_bp.route("/templates", methods=["POST"])
@@ -249,10 +274,7 @@ def add_template() -> tuple[Response, int]:
         errors["template_id"] = ["Use 2-50 lowercase letters, numbers, hyphens, or underscores."]
     elif db.session.get(ResumeTemplate, template_id):
         errors["template_id"] = ["Template ID already exists."]
-    if not 1 <= len(name) <= 80:
-        errors["name"] = ["Name must be 1-80 characters."]
-    if len(description) > 250:
-        errors["description"] = ["Description must be 250 characters or fewer."]
+    errors.update(_template_metadata_errors(name, description))
     if source_template_id not in BUILTIN_TEMPLATE_FILES:
         errors["source_template_id"] = ["Choose modern, classic, or minimal."]
     if errors:
@@ -270,7 +292,6 @@ def add_template() -> tuple[Response, int]:
     return jsonify(template.to_dict()), 201
 
 
-
 @admin_bp.route("/templates/upload", methods=["POST"])
 @admin_required
 def upload_template() -> tuple[Response, int]:
@@ -286,10 +307,7 @@ def upload_template() -> tuple[Response, int]:
         errors["template_id"] = ["Use 2-50 lowercase letters, numbers, hyphens, or underscores."]
     elif db.session.get(ResumeTemplate, template_id):
         errors["template_id"] = ["Template ID already exists."]
-    if not 1 <= len(name) <= 80:
-        errors["name"] = ["Name must be 1-80 characters."]
-    if len(description) > 250:
-        errors["description"] = ["Description must be 250 characters or fewer."]
+    errors.update(_template_metadata_errors(name, description))
     if not uploaded_file or not uploaded_file.filename:
         errors["template_file"] = ["Template file is required."]
 
@@ -329,14 +347,14 @@ def update_template(template_id: str) -> tuple[Response, int]:
 
     if "name" in data:
         name = str(data["name"]).strip()
-        if not 1 <= len(name) <= 80:
-            errors["name"] = ["Name must be 1-80 characters."]
+        if _template_metadata_errors(name, "").get("name"):
+            errors["name"] = [TEMPLATE_NAME_ERROR]
         else:
             template.name = name
     if "description" in data:
         description = str(data["description"]).strip()
-        if len(description) > 250:
-            errors["description"] = ["Description must be 250 characters or fewer."]
+        if _template_metadata_errors("x", description).get("description"):
+            errors["description"] = [TEMPLATE_DESCRIPTION_ERROR]
         else:
             template.description = description
     if "source_template_id" in data:
@@ -356,6 +374,7 @@ def update_template(template_id: str) -> tuple[Response, int]:
               metadata={"template_id": template.template_id})
     return jsonify(template.to_dict()), 200
 
+
 @admin_bp.route("/templates/<template_id>", methods=["DELETE"])
 @admin_required
 def delete_template(template_id: str) -> tuple[Response, int]:
@@ -366,15 +385,30 @@ def delete_template(template_id: str) -> tuple[Response, int]:
 
     # Guardrail 1: Prevent deletion of core system templates
     if template.template_id in BUILTIN_TEMPLATE_FILES:
-        log_event("admin_delete_core_template_attempt", user_id=current_user_id(), metadata={"template_id": template.template_id})
-        return jsonify({"message": "Cannot delete core built-in templates. You can only deactivate them."}), 403
+        log_event(
+            "admin_delete_core_template_attempt",
+            user_id=current_user_id(),
+            metadata={"template_id": template.template_id},
+        )
+        return jsonify({"message": CORE_TEMPLATE_DELETE_ERROR}), 403
 
     # Guardrail 2: Referential Integrity Check (Prevent breaking user resumes)
     usage_count = Resume.query.filter_by(template_id=template.template_id).count()
     if usage_count > 0:
-        log_event("admin_delete_active_template_attempt", user_id=current_user_id(), metadata={"template_id": template.template_id, "affected_resumes": usage_count})
+        log_event(
+            "admin_delete_active_template_attempt",
+            user_id=current_user_id(),
+            metadata={
+                "template_id": template.template_id,
+                "affected_resumes": usage_count,
+            },
+        )
         return jsonify({
-            "message": f"Cannot delete: {usage_count} resume(s) are currently using this template. Please deactivate it instead so existing users don't lose their data."
+            "message": (
+                f"Cannot delete: {usage_count} resume(s) are currently using this "
+                "template. Please deactivate it instead so existing users don't "
+                "lose their data."
+            )
         }), 409
 
     # If it passes all guardrails, it is an orphaned/unused custom template and is safe to delete

@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/../..')
+import sys
 
-from app import create_app
-from seed_admin import seed_admin
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + "/../..")
+
+from app import create_app  # noqa: E402
+from seed_admin import seed_admin  # noqa: E402
 
 app = create_app("development")
 

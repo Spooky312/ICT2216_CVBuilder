@@ -26,6 +26,9 @@ register_schema = RegisterSchema()
 login_schema = LoginSchema()
 verify_2fa_schema = VerifyTwoFactorSchema()
 
+ACCOUNT_DEACTIVATED = "Account is deactivated."
+USER_NOT_FOUND = "User not found."
+
 # Identical for new and already-registered emails so registration can't be used
 # to enumerate accounts. 2FA enrolment happens at first login.
 _REGISTER_OK_MESSAGE = "Account created. Log in to finish setting up two-factor authentication."
@@ -191,7 +194,7 @@ def login() -> tuple[Response, int]:
 
     if not user.is_active:
         log_event("login_blocked_deactivated", user_id=user.user_id)
-        return jsonify({"message": "Account is deactivated."}), 403
+        return jsonify({"message": ACCOUNT_DEACTIVATED}), 403
 
     log_event("login_totp_required", user_id=user.user_id)
     return jsonify(_totp_challenge_payload(user)), 202
@@ -210,10 +213,10 @@ def verify_2fa() -> tuple[Response, int]:
 
     user = db.session.get(User, challenge.user_id)
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
     if not user.is_active:
         log_event("login_blocked_deactivated", user_id=user.user_id)
-        return jsonify({"message": "Account is deactivated."}), 403
+        return jsonify({"message": ACCOUNT_DEACTIVATED}), 403
     if user.is_locked():
         log_event("login_blocked_locked", user_id=user.user_id)
         return jsonify({"message": "Account temporarily locked. Try again later."}), 429
@@ -249,13 +252,13 @@ def verify_2fa() -> tuple[Response, int]:
 def refresh() -> tuple[Response, int]:
     uid = current_user_id()
     if uid is None:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
 
     user = db.session.get(User, uid)
     if not user:
-        return jsonify({"message": "User not found."}), 404
+        return jsonify({"message": USER_NOT_FOUND}), 404
     if not user.is_active:
-        return jsonify({"message": "Account is deactivated."}), 403
+        return jsonify({"message": ACCOUNT_DEACTIVATED}), 403
 
     identity = str(user.user_id)
     additional = {"role": user.role, "email": user.email}
@@ -288,5 +291,3 @@ def _decode_refresh_cookie() -> dict[str, object] | None:
     except Exception:
         current_app.logger.warning("Failed to decode refresh token during logout", exc_info=True)
         return None
-
-

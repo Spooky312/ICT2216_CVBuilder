@@ -50,8 +50,9 @@ export default function Education({ data, onChange, errors = {}, onFieldBlur }) 
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Field of Study</label>
-              <input value={edu.field_of_study} onChange={(e) => update(i, 'field_of_study', e.target.value)} maxLength={200} />
+              <label htmlFor={`education-${i}-field`}>Field of Study</label>
+              <input id={`education-${i}-field`} value={edu.field_of_study}
+                onChange={(e) => update(i, 'field_of_study', e.target.value)} maxLength={200} />
             </div>
             <div className="form-group">
               <label htmlFor={`education-${i}-gpa`}>Grade</label>
@@ -73,8 +74,9 @@ export default function Education({ data, onChange, errors = {}, onFieldBlur }) 
               errors={errors} errorName={`${i}.end_date`} />
           </div>
           <div className="form-group">
-            <label>Description / Achievements</label>
-            <textarea rows={2} value={edu.description} onChange={(e) => update(i, 'description', e.target.value)} maxLength={500} />
+            <label htmlFor={`education-${i}-description`}>Description / Achievements</label>
+            <textarea id={`education-${i}-description`} rows={2} value={edu.description}
+              onChange={(e) => update(i, 'description', e.target.value)} maxLength={500} />
           </div>
         </EntryCard>
       ))}

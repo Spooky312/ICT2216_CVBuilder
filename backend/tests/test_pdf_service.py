@@ -120,6 +120,7 @@ def test_uploaded_template_html_is_used_for_pdf_generation(db, monkeypatch):
     assert calls["content_json"] == {"personal_info": {"full_name": "Alice"}}
     assert calls["timeout_seconds"] == 5
 
+
 def test_empty_skills_do_not_render_skills_section(monkeypatch):
     rendered = []
     fetchers = []
@@ -162,6 +163,34 @@ def test_empty_skills_do_not_render_skills_section(monkeypatch):
     assert "Python" in rendered[-1]
     # Rendering must wire in the blocking fetcher (no external resource loading).
     assert all(f is pdf_service._blocking_url_fetcher for f in fetchers)
+
+
+@pytest.mark.parametrize("template_id", ["classic", "minimal", "modern"])
+def test_builtin_templates_render_document_title(template_id, monkeypatch):
+    rendered = []
+
+    class FakeHTML:
+        def __init__(self, string, url_fetcher=None):
+            rendered.append(string)
+
+        def write_pdf(self):
+            return b"%PDF rendered"
+
+    monkeypatch.setattr(pdf_service, "HTML", FakeHTML)
+
+    pdf_service.generate_pdf_from_content(
+        template_id,
+        {
+            "personal_info": {"full_name": "Alice Smith", "email": "alice@example.com"},
+            "education": [],
+            "experience": [],
+            "projects": [],
+            "skills": {"technical": [], "soft": [], "languages": [], "certifications": []},
+        },
+        timeout_seconds=0,
+    )
+
+    assert "<title>Alice Smith</title>" in rendered[-1]
 
 
 def test_pdf_service_escapes_resume_fields_before_pdf_rendering(monkeypatch):

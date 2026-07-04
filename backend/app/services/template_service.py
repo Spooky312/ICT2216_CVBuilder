@@ -180,7 +180,10 @@ def _validate_template_html_allowlist(html_content: str) -> list[str]:
     return parser.errors
 
 
-def validate_uploaded_template(filename: str, raw_content: bytes) -> tuple[str | None, dict[str, list[str]]]:
+def validate_uploaded_template(
+    filename: str,
+    raw_content: bytes,
+) -> tuple[str | None, dict[str, list[str]]]:
     errors: dict[str, list[str]] = {}
     _, ext = os.path.splitext(filename.lower())
     if ext not in ALLOWED_UPLOAD_EXTENSIONS:
@@ -202,7 +205,9 @@ def validate_uploaded_template(filename: str, raw_content: bytes) -> tuple[str |
     if not stripped:
         errors.setdefault("template_file", []).append("Template file cannot be empty.")
     if "{{" not in stripped and "{%" not in stripped:
-        errors.setdefault("template_file", []).append("Template must contain Jinja placeholders for resume data.")
+        errors.setdefault("template_file", []).append(
+            "Template must contain Jinja placeholders for resume data."
+        )
 
     allowlist_errors = _validate_template_html_allowlist(stripped) if stripped else []
     if allowlist_errors:
