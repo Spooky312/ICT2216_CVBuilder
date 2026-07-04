@@ -7,7 +7,7 @@ const PASSWORD_RULES = [
   { test: (p) => /[A-Z]/.test(p), label: 'Uppercase letter' },
   { test: (p) => /[a-z]/.test(p), label: 'Lowercase letter' },
   { test: (p) => /\d/.test(p), label: 'Number' },
-  { test: (p) => /[!@#$%^&*(),.?":{}|<>_+=\[\]\\;'`~-]/.test(p), label: 'Special character' },
+  { test: (p) => /[!@#$%^&*(),.?":{}|<>_+=[\]\\;'`~-]/.test(p), label: 'Special character' },
 ];
 
 export default function Register() {

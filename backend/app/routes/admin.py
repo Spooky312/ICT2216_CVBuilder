@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any
 
 from flask import Blueprint, request, jsonify, Response
 from werkzeug.utils import secure_filename
@@ -23,8 +23,6 @@ from app.utils.helpers import current_user_id, paginate_response, parse_uuid
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
-_F = TypeVar("_F", bound=Callable[..., tuple[Response, int]])
-
 USER_NOT_FOUND = "User not found."
 TEMPLATE_NAME_ERROR = "Name must be 1-80 characters."
 TEMPLATE_DESCRIPTION_ERROR = "Description must be 250 characters or fewer."
@@ -33,7 +31,7 @@ CORE_TEMPLATE_DELETE_ERROR = (
 )
 
 
-def admin_required(fn: _F) -> _F:
+def admin_required[_F: Callable[..., tuple[Response, int]]](fn: _F) -> _F:
     @wraps(fn)
     @jwt_required()
     def wrapper(*args: Any, **kwargs: Any) -> tuple[Response, int]:
@@ -258,6 +256,23 @@ def _template_metadata_errors(name: str, description: str) -> dict[str, list[str
     return errors
 
 
+def _apply_template_metadata(
+    template: ResumeTemplate, data: dict[str, Any], errors: dict[str, list[str]]
+) -> None:
+    if "name" in data:
+        name = str(data["name"]).strip()
+        if _template_metadata_errors(name, "").get("name"):
+            errors["name"] = [TEMPLATE_NAME_ERROR]
+        else:
+            template.name = name
+    if "description" in data:
+        description = str(data["description"]).strip()
+        if _template_metadata_errors("x", description).get("description"):
+            errors["description"] = [TEMPLATE_DESCRIPTION_ERROR]
+        else:
+            template.description = description
+
+
 @admin_bp.route("/templates", methods=["POST"])
 @admin_required
 def add_template() -> tuple[Response, int]:
@@ -345,18 +360,7 @@ def update_template(template_id: str) -> tuple[Response, int]:
     data = request.get_json(force=True, silent=True) or {}
     errors: dict[str, list[str]] = {}
 
-    if "name" in data:
-        name = str(data["name"]).strip()
-        if _template_metadata_errors(name, "").get("name"):
-            errors["name"] = [TEMPLATE_NAME_ERROR]
-        else:
-            template.name = name
-    if "description" in data:
-        description = str(data["description"]).strip()
-        if _template_metadata_errors("x", description).get("description"):
-            errors["description"] = [TEMPLATE_DESCRIPTION_ERROR]
-        else:
-            template.description = description
+    _apply_template_metadata(template, data, errors)
     if "source_template_id" in data:
         source_template_id = normalise_template_id(str(data["source_template_id"]))
         if source_template_id not in BUILTIN_TEMPLATE_FILES:

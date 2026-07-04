@@ -23,7 +23,7 @@ const TOTAL_STEPS = RESUME_STEPS.length;
 function errorPathLabel(key) {
   return /^\d+$/.test(key)
     ? `entry ${Number.parseInt(key, 10) + 1}`
-    : key.replace(/_/g, ' ');
+    : key.replaceAll('_', ' ');
 }
 
 // Recursively collect all leaf error strings from a nested Marshmallow error object.
@@ -81,7 +81,7 @@ export default function ResumeWizard() {
   const [stepErrors, setStepErrors] = useState({});
   const [titleError, setTitleError] = useState('');
   const [previewOpen, setPreviewOpen] = useState(
-    () => window.matchMedia('(min-width: 1051px)').matches,
+    () => globalThis.matchMedia('(min-width: 1051px)').matches,
   );
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -141,7 +141,7 @@ export default function ResumeWizard() {
   };
 
   const focusFirstInvalid = () => {
-    window.requestAnimationFrame(() => document.querySelector('[aria-invalid="true"]')?.focus());
+    globalThis.requestAnimationFrame(() => document.querySelector('[aria-invalid="true"]')?.focus());
   };
 
   const validateCurrentStep = () => {
@@ -181,8 +181,8 @@ export default function ResumeWizard() {
       setPreviewUrl(nextUrl);
       renderedVersionRef.current = requestedVersion;
       setPreviewStale(draftVersionRef.current !== requestedVersion);
-    } catch (previewFailure) {
-      const message = await previewErrorMessage(previewFailure);
+    } catch (error_) {
+      const message = await previewErrorMessage(error_);
       if (requestId === previewRequestRef.current) setPreviewError(message);
     } finally {
       if (requestId === previewRequestRef.current) {
@@ -201,12 +201,12 @@ export default function ResumeWizard() {
     }
 
     setPreviewPaused(false);
-    const timer = window.setTimeout(() => {
+    const timer = globalThis.setTimeout(() => {
       const version = draftVersionRef.current;
       if (renderedVersionRef.current === version || renderingVersionRef.current === version) return;
       renderPreview();
     }, 1200);
-    return () => window.clearTimeout(timer);
+    return () => globalThis.clearTimeout(timer);
   }, [content, currentStep.id, loading, previewOpen, renderPreview, templateId]);
 
   const handlePreview = () => {
@@ -232,7 +232,7 @@ export default function ResumeWizard() {
   const handleClosePreview = () => {
     discardPreviewDocument();
     setPreviewOpen(false);
-    window.requestAnimationFrame(() => previewButtonRef.current?.focus());
+    globalThis.requestAnimationFrame(() => previewButtonRef.current?.focus());
   };
 
   const handleSave = async () => {
@@ -282,6 +282,8 @@ export default function ResumeWizard() {
 
   if (loading) return <div className="center-page"><Spinner size={40} /></div>;
 
+  const saveButtonLabel = isEdit ? 'Update Resume' : 'Create Resume';
+
   return (
     <div className={`wizard-container ${previewOpen ? 'preview-open' : ''}`}>
       <div className="wizard-toolbar">
@@ -291,7 +293,7 @@ export default function ResumeWizard() {
             setTitle(event.target.value);
             setTitleError('');
           }} onBlur={() => {
-            setTitleError(!title.trim() ? 'Resume title is required.' : '');
+            setTitleError(title.trim() ? '' : 'Resume title is required.');
           }} maxLength={100} className="wizard-title-input"
             aria-invalid={Boolean(titleError)} aria-describedby={titleError ? 'resume-title-error' : undefined} />
           {titleError && <small id="resume-title-error" className="field-error">{titleError}</small>}
@@ -327,7 +329,7 @@ export default function ResumeWizard() {
                 <button className="btn-primary" onClick={handleNext}>Next</button>
               ) : (
                 <button className="btn-primary" onClick={handleSave} disabled={saving}>
-                  {saving ? <><Spinner size={16} /> Saving…</> : (isEdit ? 'Update Resume' : 'Create Resume')}
+                  {saving ? <><Spinner size={16} /> Saving…</> : saveButtonLabel}
                 </button>
               )}
             </div>

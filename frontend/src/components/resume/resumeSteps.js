@@ -9,5 +9,5 @@ export const RESUME_STEPS = [
 
 export function stepIndex(stepId) {
   const index = RESUME_STEPS.findIndex((step) => step.id === stepId);
-  return index < 0 ? 0 : index;
+  return Math.max(0, index);
 }

@@ -12,13 +12,13 @@ const browserGlobals = {
   fetch: 'readonly',
   FileReader: 'readonly',
   FormData: 'readonly',
+  globalThis: 'readonly',
   localStorage: 'readonly',
   navigator: 'readonly',
   setInterval: 'readonly',
   setTimeout: 'readonly',
   URL: 'readonly',
   URLSearchParams: 'readonly',
-  window: 'readonly',
 };
 
 export default [

@@ -99,7 +99,7 @@ export default function Dashboard() {
   });
 
   const handleDelete = (id) => withAction(`${id}:delete`, async () => {
-    if (!window.confirm('Delete this resume? This cannot be undone.')) return;
+    if (!globalThis.confirm('Delete this resume? This cannot be undone.')) return;
     await deleteResume(id);
     setResumes((prev) => withoutResume(prev, id));
   });

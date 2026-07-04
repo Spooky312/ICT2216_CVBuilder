@@ -28,7 +28,7 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
     setRawTechs((prev) => {
       const next = {};
       Object.entries(prev).forEach(([k, v]) => {
-        const ki = parseInt(k, 10);
+        const ki = Number.parseInt(k, 10);
         if (ki < i) next[ki] = v;
         else if (ki > i) next[ki - 1] = v;
       });
@@ -97,11 +97,11 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
           <div className="form-row">
             <MonthYearPicker id={`project-${i}-start`} label="Start Date" value={proj.start_date}
               onChange={(value) => update(i, 'start_date', value)}
-              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
+              onBlur={() => globalThis.requestAnimationFrame(() => onFieldBlur(`${i}.start_date`))}
               errors={errors} errorName={`${i}.start_date`} />
             <MonthYearPicker id={`project-${i}-end`} label="End Date" value={proj.end_date}
               onChange={(value) => update(i, 'end_date', value)}
-              onBlur={() => window.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
+              onBlur={() => globalThis.requestAnimationFrame(() => onFieldBlur(`${i}.end_date`))}
               allowPresent presentLabel="Currently working on this project"
               errors={errors} errorName={`${i}.end_date`} />
           </div>
@@ -110,11 +110,11 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
             <label htmlFor={`project-${i}-technologies`}>Technologies <small>(comma-separated)</small></label>
             <input
               id={`project-${i}-technologies`}
-              value={rawTechs[i] !== undefined ? rawTechs[i] : (proj.technologies || []).join(', ')}
+              value={rawTechs[i] === undefined ? (proj.technologies || []).join(', ') : rawTechs[i]}
               onChange={(e) => onTechChange(i, e.target.value)}
               onBlur={() => {
                 onTechBlur(i);
-                window.requestAnimationFrame(() => onFieldBlur(`${i}.technologies`));
+                globalThis.requestAnimationFrame(() => onFieldBlur(`${i}.technologies`));
               }}
               placeholder="Python, React, PostgreSQL"
             />

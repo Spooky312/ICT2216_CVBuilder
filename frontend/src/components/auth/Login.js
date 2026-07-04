@@ -20,7 +20,7 @@ export default function Login() {
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleRedirect = (user) => {
-    if (user && user.role === 'admin') {
+    if (user?.role === 'admin') {
       navigate('/admin');
     } else {
       navigate('/dashboard');
@@ -113,7 +113,33 @@ export default function Login() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {!challenge ? (
+      {challenge ? (
+        <>
+          <form onSubmit={handleTotpSubmit} noValidate>
+            {setup && (
+              <>
+                <p className="text-muted">Set up two-factor authentication in your authenticator app before continuing.</p>
+                <TotpQrCode uri={setup.uri} />
+              </>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="totp_code">Authenticator Code</label>
+              <input id="totp_code" name="totp_code" type="text" inputMode="numeric"
+                autoComplete="one-time-code" pattern="[0-9 ]*" maxLength={12}
+                value={totpCode} onChange={(e) => setTotpCode(e.target.value)} required />
+            </div>
+
+            <button type="submit" className="btn-primary btn-full" disabled={loading}>
+              {loading ? 'Verifying...' : 'Log In'}
+            </button>
+          </form>
+          <button type="button" className="btn-secondary btn-full" onClick={resetPasswordStep}
+            disabled={loading} style={{ marginTop: '0.75rem' }}>
+            Use a different account
+          </button>
+        </>
+      ) : (
         <form onSubmit={handlePasswordSubmit} noValidate>
           <div className="form-group">
             <label htmlFor="email">Email</label>
@@ -149,32 +175,6 @@ export default function Login() {
             {loading ? 'Checking password...' : 'Continue'}
           </button>
         </form>
-      ) : (
-        <>
-          <form onSubmit={handleTotpSubmit} noValidate>
-            {setup && (
-              <>
-                <p className="text-muted">Set up two-factor authentication in your authenticator app before continuing.</p>
-                <TotpQrCode uri={setup.uri} />
-              </>
-            )}
-
-            <div className="form-group">
-              <label htmlFor="totp_code">Authenticator Code</label>
-              <input id="totp_code" name="totp_code" type="text" inputMode="numeric"
-                autoComplete="one-time-code" pattern="[0-9 ]*" maxLength={12}
-                value={totpCode} onChange={(e) => setTotpCode(e.target.value)} required />
-            </div>
-
-            <button type="submit" className="btn-primary btn-full" disabled={loading}>
-              {loading ? 'Verifying...' : 'Log In'}
-            </button>
-          </form>
-          <button type="button" className="btn-secondary btn-full" onClick={resetPasswordStep}
-            disabled={loading} style={{ marginTop: '0.75rem' }}>
-            Use a different account
-          </button>
-        </>
       )}
 
       <p className="auth-footer">

@@ -119,7 +119,7 @@ def normalise_web_url(value: str) -> str:
     try:
         hostname = parsed.hostname.encode("idna").decode("ascii").rstrip(".")
         parsed.port  # Validate the optional port range.
-    except (UnicodeError, ValueError):
+    except ValueError:
         raise ValidationError(WEB_ADDRESS_ERROR)
 
     labels = hostname.split(".")

@@ -8,7 +8,7 @@ const MONTHS = [
 ];
 
 function parseDate(value) {
-  const match = String(value || '').match(/^(\d{4})(?:-(\d{2}))?$/);
+  const match = /^(\d{4})(?:-(\d{2}))?$/.exec(String(value || ''));
   return {
     year: match ? Number(match[1]) : new Date().getFullYear(),
     month: match?.[2] || '',
@@ -64,7 +64,7 @@ export default function MonthYearPicker({
     onChange(nextValue);
     setOpen(false);
     onBlur?.();
-    window.requestAnimationFrame(() => triggerRef.current?.focus());
+    globalThis.requestAnimationFrame(() => triggerRef.current?.focus());
   };
 
   return (

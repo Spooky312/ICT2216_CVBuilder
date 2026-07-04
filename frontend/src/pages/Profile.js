@@ -44,7 +44,7 @@ export default function Profile() {
   const handleDeleteAccount = async (e) => {
     e.preventDefault();
     setDeleteMsg('');
-    if (!window.confirm('Permanently delete your account and all resumes? This cannot be undone.')) return;
+    if (!globalThis.confirm('Permanently delete your account and all resumes? This cannot be undone.')) return;
     try {
       await run('delete', () => deleteAccount({ password: deleteForm.password }));
       await logout();

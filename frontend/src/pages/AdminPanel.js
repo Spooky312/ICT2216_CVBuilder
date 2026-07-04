@@ -98,7 +98,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
   };
 
   const handleDeactivate = async (user) => {
-    if (!window.confirm(`Deactivate ${user.full_name}? They will not be able to log in.`)) return;
+    if (!globalThis.confirm(`Deactivate ${user.full_name}? They will not be able to log in.`)) return;
     setActionId(user.user_id);
     try {
       const res = await adminDeactivateUser(user.user_id);
@@ -112,7 +112,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
 
   const handleDelete = async (user) => {
     // Stronger security confirmation flow
-    const confirmation = window.prompt(
+    const confirmation = globalThis.prompt(
       `DANGER: You are about to permanently delete ${user.full_name} and all their data.\n\nType their exact email (${user.email}) to confirm:`
     );
     
@@ -156,7 +156,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
       </div>
 
       <p className="admin-count">
-        {filtered.length} user{filtered.length !== 1 ? 's' : ''}
+        {filtered.length} user{filtered.length === 1 ? '' : 's'}
         {(search || roleFilter || statusFilter) && ` (filtered from ${users.length})`}
       </p>
 
@@ -175,17 +175,23 @@ function UsersTab({ users, setUsers, onRefresh }) {
               const active = u.is_active !== false;
               const locked = active && isLocked(u);
               const busy = actionId === u.user_id;
+              let statusBadge;
+              if (active && locked) {
+                statusBadge = (
+                  <span className="badge badge-locked" title={`Until ${fmtDate(u.locked_until)}`}>Locked</span>
+                );
+              } else if (active) {
+                statusBadge = <span className="badge badge-active">Active</span>;
+              } else {
+                statusBadge = <span className="badge badge-inactive">Deactivated</span>;
+              }
               return (
                 <React.Fragment key={u.user_id}>
                   <tr>
                     <td className="user-name">{u.full_name}</td>
                     <td className="user-email">{u.email}</td>
                     <td><span className={`badge badge-${u.role}`}>{u.role}</span></td>
-                    <td>
-                      {!active ? <span className="badge badge-inactive">Deactivated</span>
-                        : locked ? <span className="badge badge-locked" title={`Until ${fmtDate(u.locked_until)}`}>Locked</span>
-                        : <span className="badge badge-active">Active</span>}
-                    </td>
+                    <td>{statusBadge}</td>
                     <td className="log-time">{fmtDate(u.created_at)}</td>
                     <td>
                       <div className="action-cell">
@@ -299,7 +305,7 @@ function LogsTab({ logs, filters, onApplyFilters, onRefresh }) {
         <button className="btn-secondary-sm" onClick={onRefresh}>Refresh</button>
       </div>
       <p className="admin-count">
-        {logs.length} event{logs.length !== 1 ? 's' : ''}{hasAppliedFilters && ' matching filters'}
+        {logs.length} event{logs.length === 1 ? '' : 's'}{hasAppliedFilters && ' matching filters'}
       </p>
       <div className="admin-table-wrap">
         <table className="admin-table">
@@ -438,7 +444,7 @@ function TemplatesTab({ templates, setTemplates }) {
   };
   
   const deleteTemplate = async (t) => {
-    if (!window.confirm(`Permanently delete the '${t.name}' template? This cannot be undone.`)) return;
+    if (!globalThis.confirm(`Permanently delete the '${t.name}' template? This cannot be undone.`)) return;
     setSaving(t.id);
     try {
       await adminDeleteTemplate(t.id);
@@ -451,10 +457,15 @@ function TemplatesTab({ templates, setTemplates }) {
     }
   };
 
+  const toggleActionLabel = (t) => {
+    if (saving === t.id) return <Spinner size={14} />;
+    return t.active ? 'Deactivate' : 'Activate';
+  };
+
   return (
     <div className="admin-tab-content">
       <div className="admin-toolbar">
-        <p className="admin-count" style={{ margin: 0 }}>{templates.length} template{templates.length !== 1 ? 's' : ''}</p>
+        <p className="admin-count" style={{ margin: 0 }}>{templates.length} template{templates.length === 1 ? '' : 's'}</p>
         <button className="btn-primary-sm" onClick={() => { setCreating((value) => !value); setUploading(false); }}>
           {creating ? 'Cancel' : 'Add Template'}
         </button>
@@ -521,7 +532,7 @@ function TemplatesTab({ templates, setTemplates }) {
           </div>
           <label className="template-active-toggle">
             <input type="checkbox" checked={uploadForm.active} onChange={(e) => updateUpload('active', e.target.checked)} />
-            Active
+            <span>Active</span>
           </label>
           <button className="btn-primary-sm" type="submit" disabled={saving === 'upload'}>
             {saving === 'upload' ? <Spinner size={14} /> : 'Upload Template'}
@@ -531,7 +542,7 @@ function TemplatesTab({ templates, setTemplates }) {
 
       <div className="template-admin-list">
         {templates.map((t) => (
-          <div key={t.id} className={`entry-card ${!t.active ? 'entry-card-inactive' : ''}`}>
+          <div key={t.id} className={`entry-card ${t.active ? '' : 'entry-card-inactive'}`}>
             <div className="entry-card-header">
               <div>
                 <strong>{t.name}</strong>
@@ -542,7 +553,7 @@ function TemplatesTab({ templates, setTemplates }) {
                 <span className={`badge ${t.active ? 'badge-active' : 'badge-inactive'}`}>{t.active ? 'Active' : 'Inactive'}</span>
                 <button className="btn-link-sm" onClick={() => startEdit(t)}>Edit</button>
                 <button className={t.active ? 'btn-danger-sm' : 'btn-secondary-sm'} onClick={() => toggleActive(t)} disabled={saving === t.id}>
-                  {saving === t.id ? <Spinner size={14} /> : t.active ? 'Deactivate' : 'Activate'}
+                  {toggleActionLabel(t)}
                 </button>
                 <button 
                   className="btn-danger-sm" 

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from flask import current_app
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 _PURPOSE = "totp-login"
 
@@ -30,7 +30,7 @@ def verify_two_factor_challenge(token: str) -> TwoFactorChallenge | None:
             token,
             max_age=current_app.config.get("TWO_FACTOR_CHALLENGE_EXPIRES", 300),
         )
-    except (BadSignature, SignatureExpired):
+    except BadSignature:
         return None
     if data.get("purpose") != _PURPOSE:
         return None

@@ -90,7 +90,7 @@ export default function Skills({ data, onChange, errors = {}, onFieldBlur }) {
           onChange={(e) => onCertChange(e.target.value)}
           onBlur={() => {
             onCertBlur();
-            window.requestAnimationFrame(() => onFieldBlur('certifications'));
+            globalThis.requestAnimationFrame(() => onFieldBlur('certifications'));
           }}
           placeholder={"AWS Certified Solutions Architect\nGoogle Professional Data Engineer"}
         />
