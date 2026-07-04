@@ -30,6 +30,8 @@ frontend/coverage/
 
 # Certs (generate locally)
 nginx/certs/
+out/
+certstrap.exe
 
 # IDE
 .vscode/
