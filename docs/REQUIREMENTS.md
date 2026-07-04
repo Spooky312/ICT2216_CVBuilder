@@ -11,14 +11,14 @@ the FR-01/FR-08 contradiction in this exact document.
 
 | ID | Requirement | Description |
 |---|---|---|
-| FR-01 | Login | Authenticate registered user via username + password, then TOTP (FR-08). Session established **only after** both factors succeed. |
-| FR-02 | Registration | Guest registers with unique username, full name, password. |
+| FR-01 | Login | Authenticate registered user via email + password, then TOTP (FR-08). Session established **only after** both factors succeed. |
+| FR-02 | Registration | Guest registers with unique email, full name, password. |
 | FR-03 | View Profile | Authenticated user views own account info. |
 | FR-04 | Update Profile | Authenticated user updates own account info. |
 | FR-05 | Delete Account | Authenticated user permanently deletes own account + all associated data. |
 | FR-06 | Logout | Authenticated user terminates current session. |
 | FR-07 | Change Password | Authenticated user changes password by providing current password + new password meeting SR-02 policy. |
-| FR-08 | Two-Factor Authentication | TOTP-based 2FA via authenticator app at login; enrolment happens at registration. |
+| FR-08 | Two-Factor Authentication | TOTP-based 2FA via authenticator app; enrolment is deferred to the user's first login (not registration), so registration never has to hand back a secret. |
 
 ### Core Features
 
@@ -53,16 +53,19 @@ the FR-01/FR-08 contradiction in this exact document.
 | NFR-11 | Compliance | PDPA + GitHub MIT License compliance. PII purged from primary storage within 24h of account deletion. |
 | NFR-12 | Portability | Fully containerised via Docker, deployable to any host/cloud without source changes. |
 
-## Implementation priority guidance for D2
+## Current implementation status
 
-Build in this rough order so each phase has something to integrate against early:
+All FR-01..FR-14 and NFR-01..NFR-12 below are implemented. See `docs/schema.md` for the
+current database schema, `docs/API_ENDPOINTS.md` for the route list, and
+`docs/SECURITY_REQUIREMENTS.md` for how each security requirement is actually satisfied.
 
-1. DB schema + migrations (`docs/DATABASE_SCHEMA.md`) — blocks everyone else
-2. Auth (FR-01, FR-02, FR-06, FR-07, FR-08) — blocks profile/resume/admin work needing a logged-in user
-3. Profile CRUD (FR-03, FR-04, FR-05)
-4. Resume CRUD + template selection (FR-09, FR-11)
-5. PDF export (FR-10) — depends on resume CRUD + templates existing
-6. Admin (FR-12, FR-13, FR-14) — depends on auth/RBAC being solid
-7. Cross-cutting: rate limiting, security headers, audit logging, CI/CD, dependency
-   scanning, automated tests — should be threaded through from the start, not bolted on
-   at the end (see `TASKS.md` Phase 0 and Phase 7-8).
+One requirement is exceeded rather than met as originally scoped: NFR-11 specifies PII
+purge within 24h of account deletion; the implementation purges synchronously
+(`DELETE /api/profile` deletes the row and its cascaded resumes immediately, no background
+job needed).
+
+Two requirements were extended beyond their original wording during implementation, noted
+here rather than silently: FR-12 (template management) also supports deleting a template
+(guarded — built-in templates can't be deleted, and in-use custom templates can't be
+deleted either); FR-13 (user management) supports both temporary lock/unlock and permanent
+deletion, not just deactivation.
