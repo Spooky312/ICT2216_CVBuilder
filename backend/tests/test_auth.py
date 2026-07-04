@@ -393,3 +393,55 @@ def test_deactivated_user_cannot_login_directly(client, db, test_user):
 
     assert resp.status_code == 403
     assert "deactivated" in resp.get_json()["message"]
+
+
+def test_verify_2fa_rejects_deactivated_user(client, db, test_user):
+    resp = client.post(LOGIN_URL, json={
+        "email": test_user.email,
+        "password": "SecurePass1!",
+    })
+    challenge_token = resp.get_json()["challenge_token"]
+
+    test_user.is_active = False
+    db.session.commit()
+
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": challenge_token,
+        "totp_code": _totp_code(test_user),
+    })
+    assert verify_resp.status_code == 403
+    assert "deactivated" in verify_resp.get_json()["message"]
+
+
+def test_verify_2fa_rejects_locked_user(client, db, test_user):
+    resp = client.post(LOGIN_URL, json={
+        "email": test_user.email,
+        "password": "SecurePass1!",
+    })
+    challenge_token = resp.get_json()["challenge_token"]
+
+    test_user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=5)
+    db.session.commit()
+
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": challenge_token,
+        "totp_code": _totp_code(test_user),
+    })
+    assert verify_resp.status_code == 429
+    assert "temporarily locked" in verify_resp.get_json()["message"]
+
+
+def test_verify_2fa_rejects_missing_totp_setup(client, db, test_user):
+    from app.utils.two_factor import create_two_factor_challenge
+
+    test_user.totp_secret = None
+    test_user.totp_enabled = False
+    db.session.commit()
+
+    token = create_two_factor_challenge(test_user.user_id)
+    verify_resp = client.post(VERIFY_2FA_URL, json={
+        "challenge_token": token,
+        "totp_code": "123456",
+    })
+    assert verify_resp.status_code == 400
+    assert "not set up" in verify_resp.get_json()["message"]

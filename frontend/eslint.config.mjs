@@ -10,6 +10,7 @@ const browserGlobals = {
   console: 'readonly',
   document: 'readonly',
   fetch: 'readonly',
+  File: 'readonly',
   FileReader: 'readonly',
   FormData: 'readonly',
   globalThis: 'readonly',

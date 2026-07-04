@@ -268,7 +268,22 @@ pytest tests -q
 The backend test suite uses SQLite in memory and does not require a running
 PostgreSQL database.
 
-Frontend test runner is not currently configured. To verify the frontend build:
+Run frontend tests:
+
+```bash
+cd frontend
+npm install
+npm test
+```
+
+Run frontend tests with coverage:
+
+```bash
+cd frontend
+npm run test:cov
+```
+
+To verify the frontend build:
 
 ```bash
 cd frontend
@@ -433,8 +448,10 @@ frontend/
   src/
     components/   Reusable React components
     context/      Auth context
+    hooks/        Shared React hooks
     pages/        App pages
     services/     API client
+    utils/        Client-side validation helpers
   vite.config.js  Vite config and proxy
 
 nginx/
