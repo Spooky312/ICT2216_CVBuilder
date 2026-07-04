@@ -8,6 +8,7 @@ import pytest
 from app.extensions import db
 from app.models.audit_log import AuditLog
 from app.models.resume import Resume
+from app.models.resume_template import ResumeTemplate
 from app.models.user import User
 from app.utils.totp import encrypt_totp_secret, generate_totp_secret
 
@@ -372,3 +373,147 @@ def test_admin_actions_create_audit_logs(client, db):
     ).first()
     assert deactivate_log is not None
     assert deactivate_log.extra["target_user"] == str(target.user_id)
+
+
+def test_delete_template_rejects_core_builtin_template(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.delete(f"{ADMIN_TEMPLATES_URL}/modern", headers=headers)
+    assert resp.status_code == 403
+    assert resp.get_json()["message"] == (
+        "Cannot delete core built-in templates. You can only deactivate them."
+    )
+
+
+def test_delete_template_rejects_when_in_use(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    user = _create_user("user@example.com")
+    headers = _login(client, admin)
+
+    create_resp = client.post(ADMIN_TEMPLATES_URL, headers=headers, json={
+        "template_id": "in-use-template",
+        "name": "In Use",
+        "description": "Has a resume attached",
+        "source_template_id": "modern",
+        "active": True,
+    })
+    assert create_resp.status_code == 201
+
+    user_client = client.application.test_client()
+    user_headers = _login(user_client, user)
+    create_resume_resp = user_client.post(RESUMES_URL, headers=user_headers, json={
+        "title": "Attached Resume",
+        "template_id": "in-use-template",
+        "content_json": SAMPLE_CONTENT,
+    })
+    assert create_resume_resp.status_code == 201
+
+    delete_resp = client.delete(f"{ADMIN_TEMPLATES_URL}/in-use-template", headers=headers)
+    assert delete_resp.status_code == 409
+    assert "currently using this template" in delete_resp.get_json()["message"]
+    assert db.session.get(ResumeTemplate, "in-use-template") is not None
+
+
+def test_delete_template_removes_orphaned_custom_template(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    create_resp = client.post(ADMIN_TEMPLATES_URL, headers=headers, json={
+        "template_id": "orphaned-template",
+        "name": "Orphaned",
+        "description": "Not used by any resume",
+        "source_template_id": "modern",
+        "active": True,
+    })
+    assert create_resp.status_code == 201
+
+    delete_resp = client.delete(f"{ADMIN_TEMPLATES_URL}/orphaned-template", headers=headers)
+    assert delete_resp.status_code == 200
+    assert delete_resp.get_json()["message"] == "Template deleted."
+
+    list_resp = client.get(ADMIN_TEMPLATES_URL, headers=headers)
+    assert all(t["id"] != "orphaned-template" for t in list_resp.get_json())
+
+
+def test_delete_template_returns_404_for_unknown_id(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.delete(f"{ADMIN_TEMPLATES_URL}/does-not-exist", headers=headers)
+    assert resp.status_code == 404
+
+
+def test_update_template_rejects_invalid_name_and_description(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.put(f"{ADMIN_TEMPLATES_URL}/modern", headers=headers, json={"name": ""})
+    assert resp.status_code == 422
+    assert "name" in resp.get_json()["errors"]
+
+    resp = client.put(f"{ADMIN_TEMPLATES_URL}/modern", headers=headers, json={
+        "description": "x" * 251,
+    })
+    assert resp.status_code == 422
+    assert "description" in resp.get_json()["errors"]
+
+
+def test_update_template_rejects_invalid_source_template_id(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.put(f"{ADMIN_TEMPLATES_URL}/modern", headers=headers, json={
+        "source_template_id": "bogus",
+    })
+    assert resp.status_code == 422
+    assert "source_template_id" in resp.get_json()["errors"]
+
+
+def test_update_template_accepts_valid_source_template_id(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.put(f"{ADMIN_TEMPLATES_URL}/modern", headers=headers, json={
+        "source_template_id": "classic",
+    })
+    assert resp.status_code == 200
+    assert resp.get_json()["source_template_id"] == "classic"
+
+
+def test_cleanup_audit_logs_rejects_short_retention(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.delete("/api/admin/audit-log/cleanup?days=30", headers=headers)
+    assert resp.status_code == 403
+    assert "Security policy" in resp.get_json()["message"]
+
+
+def test_cleanup_audit_logs_rejects_non_integer_days(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    resp = client.delete("/api/admin/audit-log/cleanup?days=abc", headers=headers)
+    assert resp.status_code == 400
+    assert "must be an integer" in resp.get_json()["message"]
+
+
+def test_cleanup_audit_logs_deletes_old_logs(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+
+    old_log = AuditLog(
+        event_type="resume_deleted",
+        user_id=admin.user_id,
+        occurred_at=datetime.now(timezone.utc) - timedelta(days=200),
+    )
+    db.session.add(old_log)
+    db.session.commit()
+
+    resp = client.delete("/api/admin/audit-log/cleanup?days=90", headers=headers)
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["deleted_count"] >= 1
+    db.session.expire_all()
+    assert AuditLog.query.filter_by(event_type="resume_deleted", user_id=admin.user_id).count() == 0
