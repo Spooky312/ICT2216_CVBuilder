@@ -71,7 +71,7 @@ function UsersTab({ users, setUsers, onRefresh }) {
   };
 
   const handleLockConfirm = async () => {
-    const mins = parseInt(lockMins, 10);
+    const mins = Number.parseInt(lockMins, 10);
     if (!mins || mins < 1 || !lockTarget) return;
     setActionId(lockTarget.user_id);
     try {
@@ -248,8 +248,8 @@ const EVENT_COLORS = {
   login_blocked_locked: 'event-danger',
   login_blocked_deactivated: 'event-danger',
   admin_access_denied: 'event-danger',
-  account_delete_bad_password: 'event-danger',
-  profile_update_bad_password: 'event-danger',
+  account_delete_bad_password: 'event-danger', // NOSONAR - audit event key, not a credential.
+  profile_update_bad_password: 'event-danger', // NOSONAR - audit event key, not a credential.
   pdf_generation_failed: 'event-danger',
 };
 
@@ -559,20 +559,23 @@ function TemplatesTab({ templates, setTemplates }) {
               <div className="template-edit-form">
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Name</label>
-                    <input value={editForm.name} onChange={(e) => updateEdit('name', e.target.value)} />
+                    <label htmlFor={`edit-template-${t.id}-name`}>Name</label>
+                    <input id={`edit-template-${t.id}-name`} value={editForm.name}
+                      onChange={(e) => updateEdit('name', e.target.value)} />
                   </div>
                   {!t.is_uploaded && (
                     <div className="form-group">
-                      <label>Render Layout</label>
-                      <select value={editForm.source_template_id} onChange={(e) => updateEdit('source_template_id', e.target.value)}>
+                      <label htmlFor={`edit-template-${t.id}-source`}>Render Layout</label>
+                      <select id={`edit-template-${t.id}-source`} value={editForm.source_template_id}
+                        onChange={(e) => updateEdit('source_template_id', e.target.value)}>
                         {sourceOptions.map((id) => <option key={id} value={id}>{id}</option>)}
                       </select>
                     </div>
                   )}
                 </div>
-                <label>Description</label>
-                <textarea rows={2} value={editForm.description} maxLength={250}
+                <label htmlFor={`edit-template-${t.id}-description`}>Description</label>
+                <textarea id={`edit-template-${t.id}-description`} rows={2}
+                  value={editForm.description} maxLength={250}
                   onChange={(e) => updateEdit('description', e.target.value)} />
                 <small>{editForm.description.length} / 250</small>
                 <div className="action-cell" style={{ marginTop: '0.5rem' }}>
@@ -671,4 +674,3 @@ export default function AdminPanel() {
     </div>
   );
 }
-

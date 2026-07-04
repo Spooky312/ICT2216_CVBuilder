@@ -9,4 +9,3 @@ __all__ = [
     "UpdateProfileSchema", "DeleteAccountSchema",
     "CreateResumeSchema", "UpdateResumeSchema", "ResumeContentSchema",
 ]
-

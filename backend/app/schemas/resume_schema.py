@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 from urllib.parse import urlsplit, urlunsplit
@@ -15,6 +15,7 @@ _START_DATE_RE = r'^\d{4}(-\d{2})?$'
 _END_DATE_RE = r'^(\d{4}(-\d{2})?|Present)$'
 _DATE_ERROR = "Date must be YYYY or YYYY-MM"
 _END_DATE_ERROR = "Date must be YYYY, YYYY-MM, or Present"
+WEB_ADDRESS_ERROR = "Enter a valid web address, such as example.com"
 
 
 def _normalise_value(value):
@@ -111,7 +112,7 @@ def normalise_web_url(value: str) -> str:
 
     parsed = urlsplit(candidate)
     if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
-        raise ValidationError("Enter a valid web address, such as example.com")
+        raise ValidationError(WEB_ADDRESS_ERROR)
     if parsed.username or parsed.password:
         raise ValidationError("Links containing usernames or passwords are not allowed")
 
@@ -119,7 +120,7 @@ def normalise_web_url(value: str) -> str:
         hostname = parsed.hostname.encode("idna").decode("ascii").rstrip(".")
         parsed.port  # Validate the optional port range.
     except (UnicodeError, ValueError):
-        raise ValidationError("Enter a valid web address, such as example.com")
+        raise ValidationError(WEB_ADDRESS_ERROR)
 
     labels = hostname.split(".")
     if len(labels) < 2 or any(
@@ -127,9 +128,15 @@ def normalise_web_url(value: str) -> str:
         or not re.fullmatch(r"[A-Za-z0-9-]+", label)
         for label in labels
     ):
-        raise ValidationError("Enter a valid web address, such as example.com")
+        raise ValidationError(WEB_ADDRESS_ERROR)
 
-    return urlunsplit((parsed.scheme.lower(), parsed.netloc, parsed.path, parsed.query, parsed.fragment))
+    return urlunsplit((
+        parsed.scheme.lower(),
+        parsed.netloc,
+        parsed.path,
+        parsed.query,
+        parsed.fragment,
+    ))
 
 
 class SafeWebUrl(fields.Str):
@@ -143,8 +150,10 @@ class SafeWebUrl(fields.Str):
 class PersonalInfoSchema(NormalisedSchema):
     full_name = fields.Str(required=True, validate=validate.Length(min=1, max=100))
     email = fields.Email(required=True)
-    phone = fields.Str(validate=validate.Regexp(r'^[\d\s\+\-\(\)]{7,20}$',
-                                                 error="Invalid phone format"))
+    phone = fields.Str(validate=validate.Regexp(
+        r'^[\d\s\+\-\(\)]{7,20}$',
+        error="Invalid phone format",
+    ))
     location = fields.Str(validate=validate.Length(max=100))
     linkedin = SafeWebUrl(validate=validate.Length(max=255))
     portfolio = SafeWebUrl(validate=validate.Length(max=255))
@@ -170,39 +179,57 @@ class ExperienceEntrySchema(DatedEntrySchema):
     end_date = _end_date_field()
     location = fields.Str(validate=validate.Length(max=100))
     description = _description_field()
-    achievements = fields.List(fields.Str(validate=validate.Length(max=MAX_TEXT)),
-                                validate=validate.Length(max=10))
+    achievements = fields.List(
+        fields.Str(validate=validate.Length(max=MAX_TEXT)),
+        validate=validate.Length(max=10),
+    )
 
 
 class ProjectEntrySchema(DatedEntrySchema):
     name = fields.Str(required=True, validate=validate.Length(min=1, max=200))
     description = _description_field()
-    technologies = fields.List(fields.Str(validate=validate.Length(max=50)),
-                                validate=validate.Length(max=15))
+    technologies = fields.List(
+        fields.Str(validate=validate.Length(max=50)),
+        validate=validate.Length(max=15),
+    )
     url = SafeWebUrl(validate=validate.Length(max=255))
     start_date = _start_date_field()
     end_date = _end_date_field()
 
 
 class SkillsSchema(NormalisedSchema):
-    technical = fields.List(fields.Str(validate=validate.Length(max=50)),
-                             validate=validate.Length(max=30))
-    soft = fields.List(fields.Str(validate=validate.Length(max=50)),
-                       validate=validate.Length(max=15))
-    languages = fields.List(fields.Str(validate=validate.Length(max=50)),
-                             validate=validate.Length(max=10))
-    certifications = fields.List(fields.Str(validate=validate.Length(max=200)),
-                                  validate=validate.Length(max=10))
+    technical = fields.List(
+        fields.Str(validate=validate.Length(max=50)),
+        validate=validate.Length(max=30),
+    )
+    soft = fields.List(
+        fields.Str(validate=validate.Length(max=50)),
+        validate=validate.Length(max=15),
+    )
+    languages = fields.List(
+        fields.Str(validate=validate.Length(max=50)),
+        validate=validate.Length(max=10),
+    )
+    certifications = fields.List(
+        fields.Str(validate=validate.Length(max=200)),
+        validate=validate.Length(max=10),
+    )
 
 
 class ResumeContentSchema(NormalisedSchema):
     personal_info = fields.Nested(PersonalInfoSchema, required=True)
-    education = fields.List(fields.Nested(EducationEntrySchema),
-                             validate=validate.Length(max=MAX_ENTRIES))
-    experience = fields.List(fields.Nested(ExperienceEntrySchema),
-                              validate=validate.Length(max=MAX_ENTRIES))
-    projects = fields.List(fields.Nested(ProjectEntrySchema),
-                            validate=validate.Length(max=MAX_ENTRIES))
+    education = fields.List(
+        fields.Nested(EducationEntrySchema),
+        validate=validate.Length(max=MAX_ENTRIES),
+    )
+    experience = fields.List(
+        fields.Nested(ExperienceEntrySchema),
+        validate=validate.Length(max=MAX_ENTRIES),
+    )
+    projects = fields.List(
+        fields.Nested(ProjectEntrySchema),
+        validate=validate.Length(max=MAX_ENTRIES),
+    )
     skills = fields.Nested(SkillsSchema)
 
 
@@ -264,4 +291,3 @@ class UpdateResumeSchema(NormalisedSchema):
     title = fields.Str(validate=validate.Length(min=1, max=100))
     template_id = fields.Str(validate=validate.Length(min=2, max=50))
     content_json = fields.Nested(ResumeContentSchema)
-

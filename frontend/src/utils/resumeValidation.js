@@ -1,6 +1,5 @@
 import { RESUME_STEPS } from '../components/resume/resumeSteps';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\s+\-()]{7,20}$/;
 const DATE_RE = /^\d{4}(-\d{2})?$/;
 const END_DATE_RE = /^(\d{4}(-\d{2})?|Present)$/;
@@ -15,6 +14,21 @@ function text(value) {
 
 function required(value, label) {
   return text(value) ? '' : `${label} is required.`;
+}
+
+function hasValidEmailShape(value) {
+  const clean = text(value);
+  const at = clean.indexOf('@');
+  if (at <= 0 || at !== clean.lastIndexOf('@')) return false;
+  const local = clean.slice(0, at);
+  const domain = clean.slice(at + 1);
+  const labels = domain.split('.');
+  return Boolean(
+    local
+    && !/\s/.test(clean)
+    && labels.length >= 2
+    && labels.every(Boolean)
+  );
 }
 
 function maxLength(value, max, label) {
@@ -83,7 +97,9 @@ function validatePersonal(personal = {}) {
   const errors = {};
   add(errors, 'full_name', required(personal.full_name, 'Full name') || maxLength(personal.full_name, 100, 'Full name'));
   add(errors, 'email', required(personal.email, 'Email'));
-  if (text(personal.email) && !EMAIL_RE.test(text(personal.email))) add(errors, 'email', 'Enter a valid email address.');
+  if (text(personal.email) && !hasValidEmailShape(personal.email)) {
+    add(errors, 'email', 'Enter a valid email address.');
+  }
   if (text(personal.phone) && !/^\+\d{1,4}\s/.test(text(personal.phone))) {
     add(errors, 'phone', 'Enter a country code beginning with +, such as +65.');
   } else if (text(personal.phone) && !PHONE_RE.test(text(personal.phone))) {

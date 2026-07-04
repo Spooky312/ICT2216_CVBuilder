@@ -66,8 +66,9 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
             </div>
           </div>
           <div className="form-group">
-            <label>Location</label>
-            <input value={exp.location} onChange={(e) => update(i, 'location', e.target.value)} maxLength={100} />
+            <label htmlFor={`experience-${i}-location`}>Location</label>
+            <input id={`experience-${i}-location`} value={exp.location}
+              onChange={(e) => update(i, 'location', e.target.value)} maxLength={100} />
           </div>
           <div className="form-row">
             <MonthYearPicker id={`experience-${i}-start`} label="Start Date" value={exp.start_date}
@@ -81,8 +82,9 @@ export default function Experience({ data, onChange, errors = {}, onFieldBlur })
               errors={errors} errorName={`${i}.end_date`} />
           </div>
           <div className="form-group">
-            <label>Description</label>
-            <textarea rows={2} value={exp.description} onChange={(e) => update(i, 'description', e.target.value)} maxLength={500} />
+            <label htmlFor={`experience-${i}-description`}>Description</label>
+            <textarea id={`experience-${i}-description`} rows={2} value={exp.description}
+              onChange={(e) => update(i, 'description', e.target.value)} maxLength={500} />
           </div>
           <div className="form-group">
             <div className="step-form-header" style={{ marginBottom: '0.5rem' }}>

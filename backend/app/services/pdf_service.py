@@ -94,6 +94,40 @@ def _pdf_worker_memory_mb() -> int:
     return int(current_app.config.get("PDF_WORKER_MEMORY_MB", 512))
 
 
+def _unlink_quietly(path: str) -> None:
+    if not path:
+        return
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
+def _worker_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = (
+        _BACKEND_ROOT
+        if not env.get("PYTHONPATH")
+        else f"{_BACKEND_ROOT}{os.pathsep}{env['PYTHONPATH']}"
+    )
+    return env
+
+
+def _worker_timeout(timeout_seconds: int) -> int | None:
+    return timeout_seconds if timeout_seconds > 0 else None
+
+
+def _run_pdf_worker(input_path: str, output_path: str, timeout_seconds: int):
+    return subprocess.run(
+        [sys.executable, "-m", "app.services.pdf_worker", input_path, output_path],
+        cwd=_BACKEND_ROOT,
+        env=_worker_env(),
+        capture_output=True,
+        timeout=_worker_timeout(timeout_seconds),
+        check=False,
+    )
+
+
 def _render_uploaded_pdf_in_worker(
     template_src: str,
     content_json: dict[str, Any],
@@ -120,35 +154,14 @@ def _render_uploaded_pdf_in_worker(
         with tempfile.NamedTemporaryFile("wb", suffix=".pdf", delete=False) as f:
             output_path = f.name
 
-        env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            _BACKEND_ROOT
-            if not env.get("PYTHONPATH")
-            else f"{_BACKEND_ROOT}{os.pathsep}{env['PYTHONPATH']}"
-        )
-        completed = subprocess.run(
-            [sys.executable, "-m", "app.services.pdf_worker", input_path, output_path],
-            cwd=_BACKEND_ROOT,
-            env=env,
-            capture_output=True,
-            timeout=timeout_seconds if timeout_seconds > 0 else None,
-            check=False,
-        )
+        completed = _run_pdf_worker(input_path, output_path, timeout_seconds)
     except subprocess.TimeoutExpired as exc:
-        if output_path:
-            try:
-                os.unlink(output_path)
-            except OSError:
-                pass
+        _unlink_quietly(output_path)
         raise TimeoutError(
             f"PDF generation exceeded the {timeout_seconds}s limit."
         ) from exc
     finally:
-        if input_path:
-            try:
-                os.unlink(input_path)
-            except OSError:
-                pass
+        _unlink_quietly(input_path)
 
     try:
         if completed.returncode != 0:
@@ -160,11 +173,7 @@ def _render_uploaded_pdf_in_worker(
         with open(output_path, "rb") as f:
             return f.read()
     finally:
-        if output_path:
-            try:
-                os.unlink(output_path)
-            except OSError:
-                pass
+        _unlink_quietly(output_path)
 
 
 def _render_builtin_pdf_with_timeout(

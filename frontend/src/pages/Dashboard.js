@@ -15,6 +15,22 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+function renamedResumes(prev, resume, updatedResume) {
+  return prev.map((item) => (
+    item.resume_id === resume.resume_id
+      ? {
+        ...item,
+        title: updatedResume.title,
+        updated_at: updatedResume.updated_at || item.updated_at,
+      }
+      : item
+  ));
+}
+
+function withoutResume(prev, id) {
+  return prev.filter((resume) => resume.resume_id !== id);
+}
+
 export default function Dashboard() {
   const [resumes, setResumes] = useState([]);
   const [maxResumes, setMaxResumes] = useState(null);
@@ -78,18 +94,14 @@ export default function Dashboard() {
     }
 
     const res = await updateResume(resume.resume_id, { title: nextTitle });
-    setResumes((prev) => prev.map((item) => (
-      item.resume_id === resume.resume_id
-        ? { ...item, title: res.data.title, updated_at: res.data.updated_at || item.updated_at }
-        : item
-    )));
+    setResumes((prev) => renamedResumes(prev, resume, res.data));
     cancelRename();
   });
 
   const handleDelete = (id) => withAction(`${id}:delete`, async () => {
     if (!window.confirm('Delete this resume? This cannot be undone.')) return;
     await deleteResume(id);
-    setResumes((prev) => prev.filter((r) => r.resume_id !== id));
+    setResumes((prev) => withoutResume(prev, id));
   });
 
   const handleDuplicate = (id) => withAction(`${id}:duplicate`, async () => {

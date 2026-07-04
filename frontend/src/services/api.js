@@ -47,10 +47,11 @@ export const adminDeactivateUser = (id) => api.post(`/api/admin/users/${id}/deac
 export const adminDeleteUser = (id) => api.delete(`/api/admin/users/${id}`);
 export const adminGetAuditLog = (page = 1, perPage = 100, filters = {}) => {
   const params = { page, per_page: perPage, ...filters };
-  const query = Object.entries(params)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '')
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&');
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    query.set(key, value);
+  });
   return api.get(`/api/admin/audit-log?${query}`);
 };
 export const adminListTemplates = () => api.get('/api/admin/templates');
@@ -69,5 +70,4 @@ export const adminDeleteTemplate = (id) => api.delete(`/api/admin/templates/${id
 export const getTemplates = () => api.get('/api/resumes/templates');
 
 export default api;
-
 

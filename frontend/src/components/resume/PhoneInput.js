@@ -207,8 +207,16 @@ function CountryCodeCombobox({ value, onChange, onBlur }) {
 
 function splitPhone(value) {
   const clean = String(value || '').trim();
-  const match = clean.match(/^(\+\d{1,4})(?:\s+|(?=\())(.*)$/);
-  if (match) return { code: match[1], number: match[2].trim() };
+  if (clean.startsWith('+')) {
+    for (let length = 1; length <= 4; length += 1) {
+      const code = clean.slice(0, length + 1);
+      const next = clean[length + 1];
+      if (!/^\+\d+$/.test(code)) continue;
+      if (next === undefined || /\s|\(/.test(next)) {
+        return { code, number: clean.slice(code.length).trim() };
+      }
+    }
+  }
   return { code: clean ? '' : '+65', number: clean };
 }
 

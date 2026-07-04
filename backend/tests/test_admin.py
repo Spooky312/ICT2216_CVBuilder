@@ -202,6 +202,7 @@ def test_admin_audit_log_filter_validation(client, db):
     assert "user_id" in errors
     assert "date_from" in errors
 
+
 def test_admin_can_create_and_persist_template(client, db):
     admin = _create_user("admin@example.com", role="admin")
     headers = _login(client, admin)
@@ -221,7 +222,6 @@ def test_admin_can_create_and_persist_template(client, db):
     list_resp = client.get(ADMIN_TEMPLATES_URL, headers=headers)
     assert list_resp.status_code == 200
     assert any(t["id"] == "professional" for t in list_resp.get_json())
-
 
 
 def test_admin_can_upload_template_and_user_can_select_it(client, db):
@@ -265,7 +265,10 @@ def test_admin_can_upload_template_and_user_can_select_it(client, db):
     b"<html><script>alert(1)</script>{{ resume.personal_info.full_name }}</html>",
     b"<html><body><img src='file:///etc/passwd'>{{ resume.personal_info.full_name }}</body></html>",
     b"<html><body><p onclick='alert(1)'>{{ resume.personal_info.full_name }}</p></body></html>",
-    b"<html><style>.x{background:url(https://evil.test/a.png)}</style><body>{{ resume.personal_info.full_name }}</body></html>",
+    (
+        b"<html><style>.x{background:url(https://evil.test/a.png)}</style>"
+        b"<body>{{ resume.personal_info.full_name }}</body></html>"
+    ),
     b"<html><body><iframe>{{ resume.personal_info.full_name }}</iframe></body></html>",
 ])
 def test_admin_template_upload_rejects_unsafe_html(client, db, html):
@@ -280,6 +283,8 @@ def test_admin_template_upload_rejects_unsafe_html(client, db, html):
 
     assert resp.status_code == 422
     assert "template_file" in resp.get_json()["errors"]
+
+
 def test_deactivated_template_is_not_selectable_for_new_resumes(client, db):
     admin = _create_user("admin@example.com", role="admin")
     user = _create_user("user@example.com")
@@ -305,6 +310,7 @@ def test_deactivated_template_is_not_selectable_for_new_resumes(client, db):
     assert create_resp.status_code == 422
     assert "template_id" in create_resp.get_json()["errors"]
 
+
 @pytest.mark.parametrize("method, endpoint", [
     ("GET", ADMIN_USERS_URL),
     ("POST", f"{ADMIN_USERS_URL}/123e4567-e89b-12d3-a456-426614174000/lock"),
@@ -320,7 +326,7 @@ def test_non_admin_cannot_access_any_admin_routes(client, db, test_user, method,
     # This covers both standard users trying to access admin routes
     # AND verifying that template management requires admin permissions
     headers = _login(client, test_user)
-    
+
     if method == "GET":
         resp = client.get(endpoint, headers=headers)
     elif method == "POST":
@@ -329,7 +335,7 @@ def test_non_admin_cannot_access_any_admin_routes(client, db, test_user, method,
         resp = client.put(endpoint, headers=headers, json={})
     else:
         resp = client.delete(endpoint, headers=headers)
-        
+
     assert resp.status_code == 403
     assert "Admin access required" in resp.get_json()["message"]
 
@@ -341,19 +347,28 @@ def test_admin_actions_create_audit_logs(client, db):
 
     # 1. Test Lock User Logging
     client.post(f"{ADMIN_USERS_URL}/{target.user_id}/lock", headers=headers, json={"minutes": 30})
-    lock_log = AuditLog.query.filter_by(event_type="admin_user_locked", user_id=admin.user_id).first()
+    lock_log = AuditLog.query.filter_by(
+        event_type="admin_user_locked",
+        user_id=admin.user_id,
+    ).first()
     assert lock_log is not None
     assert lock_log.extra["target_user"] == str(target.user_id)
     assert lock_log.extra["minutes"] == 30
 
     # 2. Test Unlock User Logging
     client.post(f"{ADMIN_USERS_URL}/{target.user_id}/unlock", headers=headers)
-    unlock_log = AuditLog.query.filter_by(event_type="admin_user_unlocked", user_id=admin.user_id).first()
+    unlock_log = AuditLog.query.filter_by(
+        event_type="admin_user_unlocked",
+        user_id=admin.user_id,
+    ).first()
     assert unlock_log is not None
     assert unlock_log.extra["target_user"] == str(target.user_id)
 
     # 3. Test Deactivate User Logging
     client.post(f"{ADMIN_USERS_URL}/{target.user_id}/deactivate", headers=headers)
-    deactivate_log = AuditLog.query.filter_by(event_type="admin_user_deactivated", user_id=admin.user_id).first()
+    deactivate_log = AuditLog.query.filter_by(
+        event_type="admin_user_deactivated",
+        user_id=admin.user_id,
+    ).first()
     assert deactivate_log is not None
     assert deactivate_log.extra["target_user"] == str(target.user_id)

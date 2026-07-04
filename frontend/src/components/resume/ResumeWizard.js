@@ -20,17 +20,29 @@ import {
 
 const TOTAL_STEPS = RESUME_STEPS.length;
 
+function errorPathLabel(key) {
+  return /^\d+$/.test(key)
+    ? `entry ${Number.parseInt(key, 10) + 1}`
+    : key.replace(/_/g, ' ');
+}
+
 // Recursively collect all leaf error strings from a nested Marshmallow error object.
 function flattenErrors(obj, path = []) {
   if (Array.isArray(obj)) return obj.map((msg) => `${path.join(' → ')}: ${msg}`);
   if (typeof obj === 'string') return [`${path.join(' → ')}: ${obj}`];
   if (obj && typeof obj === 'object') {
     return Object.entries(obj).flatMap(([key, val]) => {
-      const label = /^\d+$/.test(key) ? `entry ${parseInt(key, 10) + 1}` : key.replace(/_/g, ' ');
-      return flattenErrors(val, [...path, label]);
+      return flattenErrors(val, [...path, errorPathLabel(key)]);
     });
   }
   return [];
+}
+
+function pruneVisibleErrors(visibleErrors, currentErrors) {
+  return Object.keys(visibleErrors).reduce((next, field) => {
+    if (currentErrors[field]) next[field] = currentErrors[field];
+    return next;
+  }, {});
 }
 
 async function previewErrorMessage(error) {
@@ -114,10 +126,7 @@ export default function ResumeWizard() {
     setContent(nextContent);
     markPreviewStale();
     const currentErrors = validateResumeStep(currentStep.id, nextContent, templateId);
-    setStepErrors((visibleErrors) => Object.keys(visibleErrors).reduce((next, field) => {
-      if (currentErrors[field]) next[field] = currentErrors[field];
-      return next;
-    }, {}));
+    setStepErrors((visibleErrors) => pruneVisibleErrors(visibleErrors, currentErrors));
     setError('');
   };
 

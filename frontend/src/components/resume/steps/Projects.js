@@ -128,8 +128,8 @@ export default function Projects({ data, onChange, errors = {}, onFieldBlur }) {
           </div>
 
           <div className="form-group">
-            <label>Description</label>
-            <textarea rows={3} value={proj.description}
+            <label htmlFor={`project-${i}-description`}>Description</label>
+            <textarea id={`project-${i}-description`} rows={3} value={proj.description}
               onChange={(e) => update(i, 'description', e.target.value)} maxLength={500} />
           </div>
         </EntryCard>

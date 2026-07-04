@@ -71,8 +71,8 @@ export default function Profile() {
         <h2>Update Name</h2>
         <form onSubmit={handleUpdateName}>
           <div className="form-group">
-            <label>Full Name</label>
-            <input value={nameForm.full_name}
+            <label htmlFor="profile-full-name">Full Name</label>
+            <input id="profile-full-name" value={nameForm.full_name}
               onChange={(e) => setNameForm({ full_name: e.target.value })}
               maxLength={100} required />
           </div>
@@ -87,14 +87,14 @@ export default function Profile() {
         <h2>Change Password</h2>
         <form onSubmit={handleUpdatePassword}>
           <div className="form-group">
-            <label>Current Password</label>
-            <input type="password" value={pwForm.current_password}
+            <label htmlFor="profile-current-password">Current Password</label>
+            <input id="profile-current-password" type="password" value={pwForm.current_password}
               onChange={(e) => setPwForm({ ...pwForm, current_password: e.target.value })}
               autoComplete="current-password" required />
           </div>
           <div className="form-group">
-            <label>New Password</label>
-            <input type="password" value={pwForm.new_password}
+            <label htmlFor="profile-new-password">New Password</label>
+            <input id="profile-new-password" type="password" value={pwForm.new_password}
               onChange={(e) => setPwForm({ ...pwForm, new_password: e.target.value })}
               autoComplete="new-password" minLength={12} required />
           </div>
@@ -110,8 +110,8 @@ export default function Profile() {
         <p>Deleting your account permanently removes all your resumes and personal data.</p>
         <form onSubmit={handleDeleteAccount}>
           <div className="form-group">
-            <label>Confirm your password to delete</label>
-            <input type="password" value={deleteForm.password}
+            <label htmlFor="profile-delete-password">Confirm your password to delete</label>
+            <input id="profile-delete-password" type="password" value={deleteForm.password}
               onChange={(e) => setDeleteForm({ password: e.target.value })}
               autoComplete="current-password" required />
           </div>

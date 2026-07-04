@@ -26,6 +26,7 @@ def _solve_captcha(client):
     a, b = re.findall(r"\d+", body["question"])
     return body["captcha_token"], str(int(a) + int(b))
 
+
 VALID_USER = {
     "email": "alice@example.com",
     "password": "SecurePass1!@#",
@@ -375,7 +376,7 @@ def test_locked_user_cannot_login(client, db, test_user):
         "email": test_user.email,
         "password": "SecurePass1!",
     })
-    
+
     assert resp.status_code == 429
     assert "temporarily locked" in resp.get_json()["message"]
 
@@ -389,6 +390,6 @@ def test_deactivated_user_cannot_login_directly(client, db, test_user):
         "email": test_user.email,
         "password": "SecurePass1!",
     })
-    
+
     assert resp.status_code == 403
     assert "deactivated" in resp.get_json()["message"]

@@ -19,13 +19,19 @@ SAMPLE_CONTENT = {
         "location": "Singapore",
         "summary": "Experienced developer.",
     },
-    "education": [{"institution": "SIT", "degree": "BSc", "field_of_study": "CS",
-                    "start_date": "2020", "end_date": "2024"}],
-    "experience": [{"company": "Acme", "position": "Developer",
-                     "start_date": "2024-01", "end_date": "Present",
-                     "description": "Built things."}],
-    "projects": [{"name": "MyApp", "description": "A cool app.",
-                   "technologies": ["Python", "React"]}],
+    "education": [{
+        "institution": "SIT", "degree": "BSc", "field_of_study": "CS",
+        "start_date": "2020", "end_date": "2024",
+    }],
+    "experience": [{
+        "company": "Acme", "position": "Developer",
+        "start_date": "2024-01", "end_date": "Present",
+        "description": "Built things.",
+    }],
+    "projects": [{
+        "name": "MyApp", "description": "A cool app.",
+        "technologies": ["Python", "React"],
+    }],
     "skills": {"technical": ["Python", "Flask"], "soft": ["Communication"]},
 }
 
@@ -217,3 +223,25 @@ def test_preview_handles_pdf_generation_failures(
     })
     assert resp.status_code == status
     assert resp.get_json()["message"] == message
+
+
+def test_export_pdf_failure_does_not_log_raw_route_input(
+    client, db, test_user, monkeypatch, caplog,
+):
+    headers = _login(client, test_user)
+    create_resp = client.post(RESUMES_URL, headers=headers, json={
+        "title": "Log Test",
+        "template_id": "modern",
+        "content_json": SAMPLE_CONTENT,
+    })
+    resume_id = create_resp.get_json()["resume_id"]
+
+    def fail_export(*args, **kwargs):
+        raise RuntimeError("render failed")
+
+    monkeypatch.setattr("app.routes.resumes.generate_pdf", fail_export)
+    resp = client.get(f"{RESUMES_URL}/{resume_id}/export", headers=headers)
+
+    assert resp.status_code == 500
+    assert resp.get_json()["message"] == "PDF generation failed."
+    assert resume_id not in caplog.text
