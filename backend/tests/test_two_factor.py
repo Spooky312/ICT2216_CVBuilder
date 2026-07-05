@@ -16,7 +16,13 @@ def test_verify_two_factor_challenge_round_trips_a_valid_token(app):
 def test_verify_two_factor_challenge_rejects_a_tampered_token(app):
     with app.app_context():
         token = create_two_factor_challenge(uuid.uuid4())
-        tampered = token[:-1] + ("a" if token[-1] != "a" else "b")
+        # Tamper the payload segment, not the trailing signature character.
+        # URL-safe base64 without padding leaves "don't-care" low bits in the
+        # final character, so some single-char edits decode to identical bytes
+        # and the signature still verifies (flaky). Editing the first payload
+        # character always changes the signed content and breaks the HMAC.
+        payload, sep, signed = token.partition(".")
+        tampered = ("A" if payload[0] != "A" else "B") + payload[1:] + sep + signed
         assert verify_two_factor_challenge(tampered) is None
 
 
