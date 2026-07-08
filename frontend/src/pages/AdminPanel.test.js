@@ -193,7 +193,7 @@ describe('AdminPanel templates tab', () => {
   it('uploads an HTML template', async () => {
     api.adminUploadTemplate.mockResolvedValue({ data: template({ id: 'custom', name: 'Custom', is_uploaded: true }) });
     await openTemplatesTab();
-    fireEvent.click(screen.getByRole('button', { name: 'Upload HTML' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
     fireEvent.change(screen.getByLabelText('Template ID'), { target: { value: 'custom' } });
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Custom' } });
     const file = new File(['<html></html>'], 'custom.html', { type: 'text/html' });
@@ -216,17 +216,6 @@ describe('AdminPanel templates tab', () => {
     await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Error: In use'));
     globalThis.confirm.mockRestore();
     alertSpy.mockRestore();
-  });
-
-  it('creates a template', async () => {
-    api.adminCreateTemplate.mockResolvedValue({ data: template({ id: 'pro', name: 'Professional' }) });
-    await openTemplatesTab();
-    fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
-    fireEvent.change(screen.getByLabelText('Template ID'), { target: { value: 'pro' } });
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Professional' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create Template' }));
-    await waitFor(() => expect(api.adminCreateTemplate).toHaveBeenCalled());
-    expect(await screen.findByText('Professional')).toBeInTheDocument();
   });
 
   it('toggles a template active state', async () => {

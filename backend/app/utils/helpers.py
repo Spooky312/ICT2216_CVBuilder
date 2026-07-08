@@ -56,6 +56,18 @@ def get_current_user_or_404() -> tuple[User, None] | tuple[None, tuple[Response,
     return user, None
 
 
+def is_last_active_admin(user: User) -> bool:
+    """Return True if *user* is an active admin and no other active admin exists."""
+    if user.role != "admin" or not user.is_active:
+        return False
+    other_admins = User.query.filter(
+        User.role == "admin",
+        User.is_active.is_(True),
+        User.user_id != user.user_id,
+    ).count()
+    return other_admins == 0
+
+
 def active_jwt_required(*, refresh: bool = False) -> Callable[[_F], _F]:
     """Require a valid JWT whose user row still exists and is active."""
     def decorator(fn: _F) -> _F:

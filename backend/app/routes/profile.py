@@ -5,7 +5,9 @@ from flask_jwt_extended import unset_jwt_cookies
 from app.extensions import db
 from app.schemas.user_schema import UpdateProfileSchema, DeleteAccountSchema
 from app.utils.audit import log_event
-from app.utils.helpers import active_jwt_required, get_current_user_or_404, load_or_422
+from app.utils.helpers import (
+    active_jwt_required, get_current_user_or_404, is_last_active_admin, load_or_422,
+)
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/api/profile")
 
@@ -66,6 +68,11 @@ def delete_account() -> tuple[Response, int]:
     if not user.check_password(data["password"]):
         log_event("account_delete_bad_password", user_id=user.user_id)
         return jsonify({"message": "Password is incorrect."}), 403
+
+    if is_last_active_admin(user):
+        return jsonify({
+            "message": "Cannot delete the last remaining admin account.",
+        }), 400
 
     uid = user.user_id
     db.session.delete(user)
