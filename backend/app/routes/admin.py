@@ -19,9 +19,7 @@ from app.services.template_service import (
     list_templates, normalise_template_id, valid_template_id, validate_uploaded_template,
 )
 from app.utils.audit import log_event
-from app.utils.helpers import (
-    current_user_id, is_last_active_admin, paginate_response, parse_uuid,
-)
+from app.utils.helpers import current_user_id, paginate_response, parse_uuid
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -164,8 +162,6 @@ def delete_user(user_id: str) -> tuple[Response, int]:
         return jsonify({"message": USER_NOT_FOUND}), 404
     if _is_self(user):
         return jsonify({"message": "You cannot delete your own admin account."}), 400
-    if is_last_active_admin(user):
-        return jsonify({"message": "Cannot delete the last remaining admin account."}), 400
 
     target_email = user.email
     db.session.delete(user)

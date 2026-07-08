@@ -126,6 +126,9 @@ def test_last_admin_cannot_delete_own_account(client, db):
     assert resp.status_code == 400
     assert "last remaining admin" in resp.get_json()["message"].lower()
     assert db.session.get(User, admin_id) is not None
+    assert AuditLog.query.filter_by(
+        event_type="admin_last_admin_delete_blocked", user_id=admin_id
+    ).count() == 1
 
 
 def test_admin_can_delete_own_account_when_another_admin_exists(client, db):

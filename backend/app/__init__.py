@@ -8,12 +8,36 @@ from .config import config_by_name
 from .extensions import db, jwt, limiter, migrate
 
 
+_INSECURE_SECRET_DEFAULTS = {
+    "change-me-in-production",
+    "change-jwt-secret-in-production",
+}
+
+
+def _require_production_secrets(app: Flask) -> None:
+    """Fail fast if production would run on the built-in placeholder secrets.
+
+    The whole auth model (JWT signing, CSRF double-submit, and the signed
+    CAPTCHA/2FA challenge tokens) rests on these keys, and TOTP secrets are
+    encrypted under SECRET_KEY when TOTP_ENCRYPTION_KEY is unset. A deploy that
+    forgets to set them must not start silently on publicly-known values.
+    """
+    for key in ("SECRET_KEY", "JWT_SECRET_KEY"):
+        value = app.config.get(key)
+        if not value or value in _INSECURE_SECRET_DEFAULTS:
+            raise RuntimeError(
+                f"{key} must be set to a strong, non-default secret in production."
+            )
+
+
 def create_app(env: str | None = None) -> Flask:
     env = env or os.environ.get("FLASK_ENV", "development")
     app = Flask(__name__, template_folder="templates")
     app.config.from_object(config_by_name[env])
     if env != "testing" and not app.config.get("SQLALCHEMY_DATABASE_URI"):
         raise RuntimeError("DATABASE_URL must be set for non-testing environments.")
+    if env == "production":
+        _require_production_secrets(app)
 
     _init_extensions(app)
     _register_blueprints(app)

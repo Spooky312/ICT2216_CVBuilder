@@ -70,6 +70,7 @@ def delete_account() -> tuple[Response, int]:
         return jsonify({"message": "Password is incorrect."}), 403
 
     if is_last_active_admin(user):
+        log_event("admin_last_admin_delete_blocked", user_id=user.user_id)
         return jsonify({
             "message": "Cannot delete the last remaining admin account.",
         }), 400

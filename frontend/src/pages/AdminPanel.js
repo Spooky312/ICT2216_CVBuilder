@@ -257,6 +257,7 @@ const EVENT_COLORS = {
   admin_access_denied: 'event-danger',
   account_delete_bad_password: 'event-danger', // NOSONAR - audit event key, not a credential.
   profile_update_bad_password: 'event-danger', // NOSONAR - audit event key, not a credential.
+  admin_last_admin_delete_blocked: 'event-danger',
   pdf_generation_failed: 'event-danger',
 };
 

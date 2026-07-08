@@ -41,6 +41,7 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .navbar-links { display: flex; align-items: center; gap: 1.25rem; }
 .navbar-links a { font-size: 14px; color: var(--gray-600); font-weight: 500; }
 .navbar-links a:hover { color: var(--blue); text-decoration: none; }
+.navbar-links a.btn-primary-sm, .navbar-links a.btn-primary-sm:hover { color: #fff; }
 .btn-link { background: none; border: none; cursor: pointer; font-size: 14px;
             color: var(--gray-600); font-weight: 500; padding: 0; }
 .btn-link:hover { color: var(--red); }
