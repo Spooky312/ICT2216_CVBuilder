@@ -24,9 +24,7 @@
   .entry-desc { font-size: 9pt; color: #444; margin-top: 3px; line-height: 1.45; white-space: pre-line; }
   ul.achievements { margin: 4px 0 0 14px; }
   ul.achievements li { font-size: 9pt; color: #444; margin-bottom: 2px; line-height: 1.4; }
-  .skills-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-  .skill-tag { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 3px;
-               padding: 2px 7px; font-size: 8.5pt; color: #1e40af; }
+  .skills-row { font-size: 9pt; color: #444; margin-top: 3px; }
   .skill-label { font-weight: 600; font-size: 9pt; margin-top: 6px; margin-bottom: 3px; color: #333; }
 </style>
 </head>
@@ -116,21 +114,15 @@
   <h2>Skills</h2>
   {% if resume.skills.technical %}
   <div class="skill-label">Technical</div>
-  <div class="skills-grid">
-    {% for s in resume.skills.technical %}<span class="skill-tag">{{ s }}</span>{% endfor %}
-  </div>
+  <div class="skills-row">{{ resume.skills.technical | join(', ') }}</div>
   {% endif %}
   {% if resume.skills.soft %}
   <div class="skill-label">Soft Skills</div>
-  <div class="skills-grid">
-    {% for s in resume.skills.soft %}<span class="skill-tag">{{ s }}</span>{% endfor %}
-  </div>
+  <div class="skills-row">{{ resume.skills.soft | join(', ') }}</div>
   {% endif %}
   {% if resume.skills.languages %}
   <div class="skill-label">Languages</div>
-  <div class="skills-grid">
-    {% for s in resume.skills.languages %}<span class="skill-tag">{{ s }}</span>{% endfor %}
-  </div>
+  <div class="skills-row">{{ resume.skills.languages | join(', ') }}</div>
   {% endif %}
   {% if resume.skills.certifications %}
   <div class="skill-label">Certifications</div>

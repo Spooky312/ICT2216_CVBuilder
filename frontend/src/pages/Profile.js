@@ -63,7 +63,6 @@ export default function Profile() {
         <dl className="profile-dl">
           <dt>Email</dt><dd>{user?.email}</dd>
           <dt>Member since</dt><dd>{new Date(user?.created_at).toLocaleDateString()}</dd>
-          <dt>Role</dt><dd>{user?.role}</dd>
         </dl>
       </div>
 

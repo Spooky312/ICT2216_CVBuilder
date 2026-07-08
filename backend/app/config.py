@@ -24,6 +24,11 @@ class Config:
     RATELIMIT_STORAGE_URI = os.environ.get("REDIS_URL", "memory://")
     RATELIMIT_DEFAULT = "200 per day;50 per hour"
 
+    # Reject oversized request bodies at the app layer (defence in depth behind
+    # nginx). Comfortably fits the largest valid resume JSON and the 100 KB
+    # template upload cap while blocking multi-MB payloads.
+    MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH_BYTES", str(2 * 1024 * 1024)))
+
     MAX_RESUMES_PER_USER = 10
     PDF_GENERATION_TIMEOUT = 30
     PDF_WORKER_MEMORY_MB = int(os.environ.get("PDF_WORKER_MEMORY_MB", "512"))

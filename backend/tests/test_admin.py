@@ -117,6 +117,31 @@ def test_admin_cannot_deactivate_or_delete_self(client, db):
     assert delete_resp.status_code == 400
 
 
+def test_last_admin_cannot_delete_own_account(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    headers = _login(client, admin)
+    admin_id = admin.user_id
+
+    resp = client.delete(PROFILE_URL, headers=headers, json={"password": "SecurePass1!"})
+    assert resp.status_code == 400
+    assert "last remaining admin" in resp.get_json()["message"].lower()
+    assert db.session.get(User, admin_id) is not None
+    assert AuditLog.query.filter_by(
+        event_type="admin_last_admin_delete_blocked", user_id=admin_id
+    ).count() == 1
+
+
+def test_admin_can_delete_own_account_when_another_admin_exists(client, db):
+    admin = _create_user("admin@example.com", role="admin")
+    _create_user("admin2@example.com", role="admin")
+    headers = _login(client, admin)
+    admin_id = admin.user_id
+
+    resp = client.delete(PROFILE_URL, headers=headers, json={"password": "SecurePass1!"})
+    assert resp.status_code == 200
+    assert db.session.get(User, admin_id) is None
+
+
 def test_admin_can_permanently_delete_user_and_resumes(client, db):
     admin = _create_user("admin@example.com", role="admin")
     target = _create_user("target@example.com")

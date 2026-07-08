@@ -39,7 +39,9 @@ def validate_password(value: str) -> None:
 
 class RegisterSchema(Schema):
     email = fields.Email(required=True, validate=validate.Length(max=255))
-    password = fields.Str(required=True, load_only=True)
+    # Cap the length so an oversized body can't be forced through bcrypt (and to
+    # stay consistent with the login/delete password fields, which cap at 256).
+    password = fields.Str(required=True, load_only=True, validate=validate.Length(max=256))
     full_name = fields.Str(required=True, validate=_FULL_NAME_VALIDATORS)
 
     @validates("password")
